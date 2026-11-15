@@ -36,6 +36,23 @@ CREATE TABLE IF NOT EXISTS inventory (
 CREATE INDEX IF NOT EXISTS idx_inventory_status ON inventory(status);
 CREATE INDEX IF NOT EXISTS idx_inventory_expires ON inventory(expires_at);
 
+-- 契约 §6.14：verified_at 只接受可解析的时间。写进不可解析的值（例如「上周三」）
+-- 一律落成 NULL，读取侧于是退回 added_at 计算 stale_days（按最旧处理），
+-- 不会出现「垃圾时间戳 = 刚核验过」的假新鲜。
+CREATE TRIGGER IF NOT EXISTS trg_inventory_verified_at_insert
+AFTER INSERT ON inventory
+WHEN NEW.verified_at IS NOT NULL AND date(NEW.verified_at) IS NULL
+BEGIN
+    UPDATE inventory SET verified_at = NULL WHERE id = NEW.id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_inventory_verified_at_update
+AFTER UPDATE OF verified_at ON inventory
+WHEN NEW.verified_at IS NOT NULL AND date(NEW.verified_at) IS NULL
+BEGIN
+    UPDATE inventory SET verified_at = NULL WHERE id = NEW.id;
+END;
+
 -- 菜谱（参考数据，来自 app/data/recipes.json）
 CREATE TABLE IF NOT EXISTS recipes (
     id          TEXT PRIMARY KEY,
@@ -68,10 +85,12 @@ CREATE TABLE IF NOT EXISTS waste_log (
 );
 CREATE INDEX IF NOT EXISTS idx_waste_created ON waste_log(created_at);
 
--- 对账落地台账（契约 §6.13 规则 4：同一 inventory_id 重复 apply 只生效一次）
--- fingerprint = 动作 + 目标值，重复提交命中同一条就跳过
+-- 对账落地台账（契约 §6.13 规则 4：同一 request_id 重复 apply 只生效一次）
+-- fingerprint = request_id + 动作 + 目标值，重复提交命中同一条就跳过；
+-- 不同 request_id 的相同动作视为「用户确实又做了一次」，正常生效
 CREATE TABLE IF NOT EXISTS reconcile_applied (
     fingerprint   TEXT PRIMARY KEY,
+    request_id    TEXT,             -- 一次对账请求的标识（缺省由服务端生成）
     inventory_id  TEXT,
     action        TEXT,
     detail        TEXT,             -- JSON：改了什么（原数量/新数量/克数/原因）

@@ -22,8 +22,6 @@ ENV_FILE = SERVER_DIR / ".env"
 DATA_DIR = APP_DIR / "data"
 FIXTURES_DIR = DATA_DIR / "fixtures"
 RUNTIME_DIR = SERVER_DIR / "data"
-# 上传目录必须可覆盖：发布目录每次切换软链，写进 releases/ 的图会随版本孤立
-UPLOAD_DIR = Path(env_str("SHIGUANG_UPLOAD_DIR", str(RUNTIME_DIR / "upload")))
 
 
 def load_env_file(path: Path) -> dict[str, str]:
@@ -54,6 +52,10 @@ ENV_DOTENV = load_env_file(ENV_FILE)
 def env_str(key: str, default: str = "") -> str:
     """进程环境变量优先，其次 .env，最后默认值。"""
     return os.environ.get(key) or ENV_DOTENV.get(key) or default
+
+
+# 上传目录必须可覆盖：发布目录每次切换软链，写进 releases/ 的图会随版本孤立
+UPLOAD_DIR = Path(env_str("SHIGUANG_UPLOAD_DIR", str(RUNTIME_DIR / "upload")))
 
 
 def env_int(key: str, default: int) -> int:

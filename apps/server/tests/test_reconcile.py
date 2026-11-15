@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import pytest
 from fastapi import FastAPI
@@ -175,10 +175,10 @@ def test_reconcile_reduced_then_apply_scales_grams(
 
 
 def test_apply_is_idempotent(client, add_item):
-    """同一 inventory_id 重复 apply 只生效一次（第二次 applied 全 0）。"""
+    """同一 request_id 重放只生效一次（第二次 applied 全 0）。"""
     add_item("鸡蛋", avg_grams=60.0, unit="个", shelf_life_days=10)
     inv_id = inv.add_items({"items": [{"name": "鸡蛋", "qty": 6}]})["ids"][0]
-    payload = {"reduced": [{"inventory_id": inv_id, "qty": 2}]}
+    payload = {"request_id": "req_replay", "reduced": [{"inventory_id": inv_id, "qty": 2}]}
 
     first = _apply(client, payload).json()
     second = _apply(client, payload).json()
@@ -191,12 +191,13 @@ def test_apply_is_idempotent(client, add_item):
 
 
 def test_apply_idempotent_for_added_and_discard(client, add_item):
-    """added / discarded 同样幂等：重复提交不会重复入库或重复计浪费。"""
+    """同一 request_id 重放：added / discarded 不会重复入库或重复计浪费。"""
     add_item("酸奶", avg_grams=100.0, unit="杯", shelf_life_days=7)
     add_item("生菜", avg_grams=300.0, unit="颗", carbon_kg_per_kg=1.8)
     lettuce = inv.add_items({"items": [{"name": "生菜", "qty": 2}]})["ids"][0]
 
     payload = {
+        "request_id": "req_replay",
         "missing": [{"inventory_id": lettuce, "action": "discarded", "reason": "spoiled"}],
         "added": [{"name": "酸奶", "qty": 2, "unit": "杯"}],
     }
@@ -412,6 +413,138 @@ def test_reconcile_apply_keeps_data_when_all_keep(client, add_item):
     assert _events("reconcile") == []
 
 
+def _count(table: str) -> int:
+    conn = get_conn()
+    try:
+        return int(conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
+    finally:
+        conn.close()
+
+
+def test_apply_second_item_invalid_changes_nothing(client, add_item):
+    """先全量校验：第二条 reason 非法 → 400，第一条也不落库（无半截数据）。"""
+    add_item("生菜", avg_grams=300.0, unit="颗", carbon_kg_per_kg=1.8)
+    add_item("鸡蛋", avg_grams=60.0, unit="个", shelf_life_days=10)
+    lettuce, eggs = inv.add_items(
+        {"items": [{"name": "生菜", "qty": 1}, {"name": "鸡蛋", "qty": 6}]}
+    )["ids"]
+
+    before_verified = {
+        row["id"]: row["verified_at"] for row in inv.list_inventory("active")
+    }
+    before = (_count("waste_log"), _count("events"), _count("reconcile_applied"))
+
+    response = _apply(
+        client,
+        {
+            "missing": [
+                {"inventory_id": lettuce, "action": "discarded", "reason": "spoiled"},
+                {"inventory_id": eggs, "action": "discarded", "reason": "上周三"},
+            ]
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["code"] == "invalid_reason"
+
+    # 库存一行都没动（含 verified_at：整批失败不能盖核验时间）
+    assert inv.get_inventory(lettuce)["status"] == "active"
+    assert inv.get_inventory(lettuce)["grams"] == pytest.approx(300.0)
+    assert inv.get_inventory(eggs)["status"] == "active"
+    assert inv.get_inventory(eggs)["grams"] == pytest.approx(360.0)
+    assert {
+        row["id"]: row["verified_at"] for row in inv.list_inventory("active")
+    } == before_verified
+
+    assert (
+        _count("waste_log"),
+        _count("events"),
+        _count("reconcile_applied"),
+    ) == before == (0, 0, 0)
+
+
+def test_transaction_rolls_back_domain_commits(add_item):
+    """事务块内抛异常 → 域函数自己 commit 过的改动也一起回滚。"""
+    from app.db.conn import transaction
+
+    add_item("生菜", avg_grams=300.0, unit="颗", carbon_kg_per_kg=1.8)
+    inv_id = inv.add_items({"items": [{"name": "生菜", "qty": 2}]})["ids"][0]
+
+    with pytest.raises(RuntimeError):
+        with transaction():
+            inv.discard(inv_id, "spoiled")
+            assert _count("waste_log") == 1, "事务内应能看到未提交的改动"
+            raise RuntimeError("boom")
+
+    assert _count("waste_log") == 0, "整批回滚：waste_log 不能留半截"
+    assert _count("events") == 0
+    assert inv.get_inventory(inv_id)["status"] == "active"
+    assert inv.get_inventory(inv_id)["grams"] == pytest.approx(600.0)
+
+
+def test_apply_request_id_scopes_idempotency(client, add_item):
+    """同一 request_id 重复提交全跳过；不同 request_id 的相同动作正常生效。"""
+    add_item("酸奶", avg_grams=100.0, unit="杯", shelf_life_days=7)
+    add_item("鸡蛋", avg_grams=60.0, unit="个", shelf_life_days=10)
+    eggs = inv.add_items({"items": [{"name": "鸡蛋", "qty": 6}]})["ids"][0]
+
+    payload = {"request_id": "req_same", "added": [{"name": "酸奶", "qty": 2, "unit": "杯"}]}
+    first = _apply(client, payload).json()
+    second = _apply(client, payload).json()
+
+    assert first["applied"] == {"discarded": 0, "consumed": 0, "updated": 0, "added": 1}
+    assert second["applied"] == {"discarded": 0, "consumed": 0, "updated": 0, "added": 0}
+    assert second["request_id"] == "req_same"
+    assert second["skipped"] >= 1
+    assert any("此前已经生效" in warning for warning in second["warnings"])
+
+    # 不同 request_id：用户后来又买了一瓶酸奶，正常生效
+    third = _apply(client, {**payload, "request_id": "req_later"}).json()
+    assert third["applied"]["added"] == 1
+    yogurts = [row for row in inv.list_inventory("active") if row["name"] == "酸奶"]
+    assert len(yogurts) == 2
+
+    # discarded 同理：同一 request_id 重复 → 0；不同 request_id 同克数 → 真的又扔 120g
+    discard = {
+        "request_id": "req_d1",
+        "missing": [
+            {"inventory_id": eggs, "action": "discarded", "reason": "spoiled", "grams": 120}
+        ],
+    }
+    assert _apply(client, discard).json()["applied"]["discarded"] == 1
+    assert _apply(client, discard).json()["applied"]["discarded"] == 0
+    assert _apply(client, {**discard, "request_id": "req_d2"}).json()["applied"]["discarded"] == 1
+
+    conn = get_conn()
+    try:
+        grams = [
+            row[0]
+            for row in conn.execute(
+                "SELECT grams FROM waste_log WHERE inventory_id = ? ORDER BY created_at", (eggs,)
+            ).fetchall()
+        ]
+    finally:
+        conn.close()
+    assert grams == [pytest.approx(120.0), pytest.approx(120.0)]
+
+
+def test_apply_dedupes_within_one_request(client, add_item):
+    """同一请求里重复行只生效一次（缺省 request_id 也只在本次请求内去重）。"""
+    add_item("酸奶", avg_grams=100.0, unit="杯")
+    body = _apply(
+        client,
+        {
+            "added": [
+                {"name": "酸奶", "qty": 1, "unit": "杯"},
+                {"name": "酸奶", "qty": 1, "unit": "杯"},
+            ]
+        },
+    ).json()
+    assert body["applied"]["added"] == 1
+    assert body["skipped"] == 1
+    assert len(inv.list_inventory("active")) == 1
+
+
 def test_apply_clears_stale_warning(client, add_item):
     """拍完对账并 apply（即使全是 keep）后 stale_days 归零，提示不再出现。"""
     add_item("生菜", avg_grams=300.0, unit="颗")
@@ -433,4 +566,77 @@ def test_apply_clears_stale_warning(client, add_item):
     assert inv.get_inventory(first)["stale_days"] == 0
     assert inv.get_inventory(second)["stale_days"] == 0
     assert all(row["stale_days"] == 0 for row in client.get("/api/inventory").json())
+
+
+def test_apply_invalid_checked_at_falls_back_to_server_time(client, add_item):
+    """checked_at 传「上周三」→ 400 或落服务端当前时间，不能变成「刚核验过」的假新鲜。"""
+    add_item("生菜", avg_grams=300.0, unit="颗")
+    inv_id = inv.add_items({"items": [{"name": "生菜", "qty": 1}]})["ids"][0]
+
+    stale_iso = (inv.today() - timedelta(days=9)).isoformat() + "T10:00:00+08:00"
+    conn = get_conn()
+    try:
+        conn.execute("UPDATE inventory SET verified_at = ? WHERE id = ?", (stale_iso, inv_id))
+        conn.commit()
+    finally:
+        conn.close()
+    assert inv.get_inventory(inv_id)["stale_days"] == 9
+
+    body = _apply(
+        client,
+        {"checked_at": "上周三", "missing": [{"inventory_id": inv_id, "action": "keep"}]},
+    ).json()
+
+    assert any("不是合法时间" in warning for warning in body["warnings"])
+
+    row = inv.get_inventory(inv_id)
+    assert row["verified_at"] is not None
+    datetime.fromisoformat(row["verified_at"])  # 必须是合法时间（解析失败会抛 ValueError）
+    assert row["stale_days"] == 0, "只有真的用当前时间记录核验，才算新鲜"
+
+    payload = _events("reconcile")
+    assert payload == [], "全是 keep 时不该写对账事件"
+
+
+def test_apply_future_checked_at_is_clamped(client, add_item):
+    """未来时间不能让 stale_days 永远为 0。"""
+    add_item("生菜", avg_grams=300.0, unit="颗")
+    inv_id = inv.add_items({"items": [{"name": "生菜", "qty": 1}]})["ids"][0]
+
+    body = _apply(
+        client,
+        {
+            "checked_at": "2099-01-01T00:00:00+08:00",
+            "missing": [{"inventory_id": inv_id, "action": "keep"}],
+        },
+    ).json()
+
+    assert any("晚于当前时间" in warning for warning in body["warnings"])
+    row = inv.get_inventory(inv_id)
+    assert datetime.fromisoformat(row["verified_at"]).date() == inv.today()
+
+
+def test_invalid_verified_at_falls_back_to_added_at(client, add_item):
+    """verified_at 解析不了 → 按 added_at 算 stale_days（不得返回 0 冒充新鲜）。"""
+    add_item("生菜", avg_grams=300.0, unit="颗", shelf_life_days=30)
+    inv_id = inv.add_items({"items": [{"name": "生菜", "qty": 1}]})["ids"][0]
+
+    added = (inv.today() - timedelta(days=6)).isoformat() + "T10:00:00+08:00"
+    conn = get_conn()
+    try:
+        conn.execute(
+            "UPDATE inventory SET added_at = ?, verified_at = ? WHERE id = ?",
+            (added, "上周三", inv_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    row = inv.get_inventory(inv_id)
+    assert row["verified_at"] is None, "非法时间不得留在库里"
+    assert row["stale_days"] == 6, "退回 added_at（最旧）计算，不许 0"
+
+    listed = client.get("/api/inventory", params={"status": "active"}).json()
+    assert listed[0]["stale_days"] == 6
+
 

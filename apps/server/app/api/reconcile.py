@@ -68,6 +68,8 @@ class AddedIn(BaseModel):
 class ReconcileApplyIn(BaseModel):
     image_id: str | None = None
     checked_at: str | None = None
+    # 契约 §6.13 规则 4：一次请求的客户端标识；缺省由服务端生成（只在该请求内去重）
+    request_id: str | None = None
     missing: list[MissingActionIn] = Field(default_factory=list)
     reduced: list[ReducedIn] = Field(default_factory=list)
     added: list[AddedIn] = Field(default_factory=list)

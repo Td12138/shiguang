@@ -466,6 +466,9 @@ def verify(
 
     meal_count = 0
     for day in days:
+        if not day.get("meals"):
+            # 模型经常只排第一天就收工，空着的一天等于没做
+            problems.append(f"第 {day['date']} 没有任何餐次")
         for meal in day["meals"]:
             meal_count += 1
             recipe_id = str(meal.get("recipe_id") or "")

@@ -32,7 +32,7 @@ export function Button({
       className={classes}
       data-variant={variant}
       data-size={size}
-      disabled={disabled ?? false}
+      disabled={disabled === true || loading}
       aria-busy={loading || undefined}
       aria-disabled={loading || undefined}
     >

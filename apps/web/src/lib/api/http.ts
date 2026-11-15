@@ -26,10 +26,50 @@ export class ApiError extends Error {
   }
 }
 
-function isErrorBody(value: unknown): value is { code: string; message: string; detail?: string } {
+function isErrorBody(value: unknown): value is { code: string; message: string; detail?: unknown } {
   if (typeof value !== 'object' || value === null) return false;
   const record = value as Record<string, unknown>;
   return typeof record.code === 'string' && typeof record.message === 'string';
+}
+
+/** 422 的 detail 可能是字符串，也可能是 FastAPI 的数组（{loc,msg,type}）；统一转成一句人话 */
+function detailText(detail: unknown): string | undefined {
+  if (detail === null || detail === undefined) return undefined;
+  if (typeof detail === 'string') return detail.trim() || undefined;
+  if (Array.isArray(detail)) {
+    const parts = detail
+      .map((entry) => {
+        if (typeof entry === 'string') return entry;
+        if (typeof entry === 'number' || typeof entry === 'boolean') return String(entry);
+        if (typeof entry === 'object' && entry !== null) {
+          const record = entry as Record<string, unknown>;
+          const loc = Array.isArray(record.loc)
+            ? record.loc.filter((part) => typeof part === 'string' || typeof part === 'number').join('.')
+            : '';
+          const message = typeof record.msg === 'string' ? record.msg : '';
+          const text = [loc, message].filter(Boolean).join(': ');
+          if (text) return text;
+          try {
+            return JSON.stringify(entry);
+          } catch {
+            return '';
+          }
+        }
+        return '';
+      })
+      .filter(Boolean);
+    return parts.length > 0 ? parts.join('；') : undefined;
+  }
+  if (typeof detail === 'object') {
+    const message = (detail as Record<string, unknown>).msg;
+    if (typeof message === 'string') return message;
+    try {
+      return JSON.stringify(detail);
+    } catch {
+      return undefined;
+    }
+  }
+  return String(detail);
 }
 
 async function safeJson(res: Response): Promise<unknown> {
@@ -67,7 +107,7 @@ export async function request<T>(
     if (!res.ok) {
       const body = await safeJson(res);
       if (isErrorBody(body)) {
-        throw new ApiError(body.code, body.message, res.status, body.detail);
+        throw new ApiError(body.code, body.message, res.status, detailText(body.detail));
       }
       throw new ApiError(`http_${res.status}`, `请求失败（HTTP ${res.status}）`, res.status);
     }

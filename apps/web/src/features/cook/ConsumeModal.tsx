@@ -15,10 +15,30 @@ export interface ConsumeModalProps {
   submitting?: boolean;
 }
 
-/** 菜名/理由里出现过的食材默认勾上 */
+/** 菜名/理由里出现过的食材默认勾上；有 uses 时只认 uses，避免把同名字的库存都勾上 */
 function guessUsed(recipe: RecipeRecommendation, inventory: InventoryItem[]): string[] {
+  const uses = recipe.uses ?? [];
+  const ids = new Set<string>();
+  uses.forEach((use) => {
+    const item = use.inventory_id
+      ? inventory.find((row) => row.id === use.inventory_id)
+      : inventory.find((row) => row.name === use.name);
+    if (item) ids.add(item.id);
+  });
+  if (uses.length > 0) return [...ids];
   const text = `${recipe.title} ${recipe.reason}`;
   return inventory.filter((item) => text.includes(item.name)).map((item) => item.id);
+}
+
+/** 默认数量取菜谱 uses[].qty（不能把整条库存一次扣完），没有用量时才退回整条库存 */
+function defaultQty(
+  item: InventoryItem,
+  useById: Map<string, number>,
+  useByName: Map<string, number>,
+): number {
+  const used = useById.get(item.id) ?? useByName.get(item.name);
+  if (used === undefined || !Number.isFinite(used) || used <= 0) return item.qty;
+  return Math.min(used, item.qty);
 }
 
 export function ConsumeModal({
@@ -35,9 +55,15 @@ export function ConsumeModal({
     if (!recipe) return;
     const used = guessUsed(recipe, inventory);
     setChecked(used);
+    const useById = new Map<string, number>();
+    const useByName = new Map<string, number>();
+    (recipe.uses ?? []).forEach((use) => {
+      if (use.inventory_id) useById.set(use.inventory_id, use.qty);
+      useByName.set(use.name, use.qty);
+    });
     const defaults: Record<string, string> = {};
     inventory.forEach((item) => {
-      defaults[item.id] = `${item.qty}`;
+      defaults[item.id] = `${defaultQty(item, useById, useByName)}`;
     });
     setQtyValues(defaults);
   }, [recipe, inventory]);

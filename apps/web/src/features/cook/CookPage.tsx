@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 import { ConsumeModal } from './ConsumeModal';
 import type { ConsumeLine } from './consume';
+import { lineForUse } from './consume';
 import { CookTimeline } from './CookTimeline';
 import { IngredientPicker } from './IngredientPicker';
 import { SuggestionSection } from './SuggestionSection';
@@ -52,16 +53,18 @@ export default function CookPage() {
   };
 
   const handleCooked = async (recipe: RecipeRecommendation): Promise<void> => {
-    // 优先用 uses[].inventory_id 直接扣减；没有 id 时按食材名对上库存；都对不上才弹确认
-    const ids = (recipe.uses ?? []).flatMap((use) => {
-      if (use.inventory_id && cook.inventory.some((item) => item.id === use.inventory_id)) {
-        return [use.inventory_id];
+    // 优先按 uses[].qty 折算克数直接扣；有任一行对不上库存/单位才弹确认
+    const lines: ConsumeLine[] = [];
+    let complete = (recipe.uses ?? []).length > 0;
+    for (const use of recipe.uses ?? []) {
+      const line = lineForUse(use, cook.inventory);
+      if (!line) {
+        complete = false;
+        break;
       }
-      const byName = cook.inventory.find((item) => item.name === use.name);
-      return byName ? [byName.id] : [];
-    });
-    const complete = (recipe.uses ?? []).length > 0 && ids.length === (recipe.uses ?? []).length;
-    if (complete) await finish(recipe, ids.map((id) => ({ id })));
+      lines.push(line);
+    }
+    if (complete) await finish(recipe, lines);
     else setPending(recipe);
   };
 

@@ -27,6 +27,7 @@ export function usePlan(): PlanState {
   const [plan, setPlan] = useState<MealPlan | null>(null);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [inventoryError, setInventoryError] = useState<string | null>(null);
   const [demo, setDemo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [revising, setRevising] = useState(false);
@@ -35,24 +36,40 @@ export function usePlan(): PlanState {
   const stream = useStreamRun();
 
   const loadInventory = useCallback(async (): Promise<void> => {
-    const result = await fetchInventory('active');
-    setInventory(result.data);
-    setDemo((previous) => previous || result.demo);
+    try {
+      const result = await fetchInventory('active');
+      setInventory(result.data);
+      setDemo((previous) => previous || result.demo);
+      setInventoryError(null);
+    } catch (err) {
+      // 4xx 不回落样例：如实提示，并允许用户重试（不能卡在骨架屏）
+      setInventoryError(describeApiError(err));
+    }
   }, []);
 
-  useEffect(() => {
-    void (async () => {
+  /** 首次读数：无论成功失败都要收掉骨架屏 */
+  const reloadInventory = useCallback(async (): Promise<void> => {
+    setLoading(true);
+    try {
       await loadInventory();
+    } finally {
       setLoading(false);
-    })();
+    }
   }, [loadInventory]);
+
+  useEffect(() => {
+    void reloadInventory();
+  }, [reloadInventory]);
 
   /** 流式失败时退回非流式：后端不通则 loadPlan 会回样例并标 demo */
   const recoverFromStreamError = useCallback(
     async (err: ApiError, body: PlanRequest): Promise<void> => {
-      // 传输失败、5xx，或后端还没上线流式端点（404/405）都退回非流式
+      // 传输失败、5xx、流被截断，或后端还没上线流式端点（404/405）都退回非流式
       const streamUnavailable =
-        isTransportError(err) || err.status === 404 || err.status === 405;
+        isTransportError(err) ||
+        err.code === 'stream_incomplete' ||
+        err.status === 404 ||
+        err.status === 405;
       if (!streamUnavailable) {
         setError(describeApiError(err));
         return;
@@ -140,6 +157,7 @@ export function usePlan(): PlanState {
     plan,
     inventory,
     loading,
+    inventoryError,
     demo,
     error,
     streaming: stream.running,
@@ -147,6 +165,7 @@ export function usePlan(): PlanState {
     streamDelta: stream.delta,
     streamSlow: stream.slow,
     cancelGenerate,
+    reloadInventory,
     revising,
     reviseError,
     diff,

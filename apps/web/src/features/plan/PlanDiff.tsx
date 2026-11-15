@@ -10,7 +10,7 @@ export interface PlanDiffState {
   warnings: string[];
 }
 
-const NO_CHANGE_PREFIXES = ['没能换成', '这次没能改'] as const;
+const NO_CHANGE_PREFIXES = ['没能换成', '这次没能改', '指令里没有'] as const;
 
 /** 没改动时优先取后端专门说明「为什么没换成」的那条，别被降级/临期提示抢走 */
 function noChangeReason(warnings: string[]): string {
@@ -44,7 +44,15 @@ export function PlanDiff({ diff, onDismiss }: PlanDiffProps) {
     >
       {diff.changed.length === 0 ? (
         <Notice tone="warn" title="这次没能改">
-          {reason}
+          {diff.warnings.length > 0 ? (
+            <ul className={styles.warnings}>
+              {diff.warnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>{reason}</p>
+          )}
         </Notice>
       ) : (
         <ul className={styles.list}>

@@ -148,12 +148,13 @@ export function ReconcileCapture() {
               <strong>{reconcile.summary.discarded}</strong> 项
               <span className={styles.summarySub}>
                 吃掉 {reconcile.summary.consumed} 项 · 新增 {reconcile.summary.added} 项
+                {reconcile.demo ? ' · 演示数据不会写回' : ''}
               </span>
             </p>
             <Button
               onClick={() => void handleApply()}
               loading={reconcile.stage === 'applying'}
-              disabled={reconcile.summary.total === 0 || reconcile.invalid}
+              disabled={reconcile.demo || reconcile.summary.total === 0 || reconcile.invalid}
             >
               应用对账（{reconcile.summary.total} 项）
             </Button>

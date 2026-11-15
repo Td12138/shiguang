@@ -39,6 +39,18 @@ export function reducedQtyOf(
   return null;
 }
 
+/**
+ * 「全部保留」的 reduced 数量：显式写回 from_qty。
+ * 不能留空，否则 reducedQtyOf 会回退识别值 to_qty，把 AI 减量写进库存。
+ */
+export function keepAllQty(result: ReconcileResult | null): Record<string, string> {
+  const next: Record<string, string> = {};
+  (result?.reduced ?? []).forEach((item) => {
+    next[item.inventory_id] = `${item.from_qty}`;
+  });
+  return next;
+}
+
 /** 有变化的 reduced 项：用户改过数量且与原值不同 */
 export function countUpdated(
   result: ReconcileResult | null,

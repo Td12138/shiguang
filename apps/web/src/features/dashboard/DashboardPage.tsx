@@ -1,12 +1,15 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import type { InventoryItem } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { DemoBanner } from '@/components/ui/DemoBanner';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Notice } from '@/components/ui/Notice';
+import { useToast } from '@/components/ui/Toast';
 import { countStale } from '@/lib/freshness';
 import { DashboardSkeleton } from './DashboardSkeleton';
 import { FridgeOverview } from './FridgeOverview';
+import { InventoryItemDialog, type InventoryDialogMode } from './InventoryItemDialog';
 import { SuggestionPanel } from './SuggestionPanel';
 import { UrgentStrip } from './UrgentStrip';
 import { StaleNotice } from './StaleNotice';
@@ -15,12 +18,48 @@ import { useDashboard } from './useDashboard';
 import styles from './DashboardPage.module.css';
 
 export default function DashboardPage() {
-  const { inventory, suggestion, loading, demo, error, reload } = useDashboard();
+  const { inventory, suggestion, loading, demo, error, reload, replaceItem, removeItem } =
+    useDashboard();
+  const { toast } = useToast();
   const navigate = useNavigate();
+  const [dialog, setDialog] = useState<{
+    item: InventoryItem;
+    mode: InventoryDialogMode;
+  } | null>(null);
 
   const expiring = useMemo(() => pickExpiring(inventory), [inventory]);
   const groups = useMemo(() => groupByCategory(inventory), [inventory]);
   const staleCount = useMemo(() => countStale(inventory), [inventory]);
+
+  const openEdit = useCallback((item: InventoryItem): void => {
+    setDialog({ item, mode: 'edit' });
+  }, []);
+
+  const openDiscard = useCallback((item: InventoryItem): void => {
+    setDialog({ item, mode: 'discard' });
+  }, []);
+
+  const closeDialog = useCallback((): void => {
+    setDialog(null);
+  }, []);
+
+  const handleUpdated = useCallback(
+    (updated: InventoryItem): void => {
+      setDialog(null);
+      replaceItem(updated);
+      toast(`已更新「${updated.name}」的数量/到期日`, 'success');
+    },
+    [replaceItem, toast],
+  );
+
+  const handleDiscarded = useCallback(
+    (item: InventoryItem): void => {
+      setDialog(null);
+      removeItem(item.id);
+      toast(`已丢弃「${item.name}」，并记入浪费账`, 'success');
+    },
+    [removeItem, toast],
+  );
 
   if (loading) {
     return (
@@ -79,7 +118,20 @@ export default function DashboardPage() {
       <StaleNotice count={staleCount} />
       <UrgentStrip items={expiring} />
       <SuggestionPanel suggestion={suggestion} loading={loading} onRefresh={reload} />
-      <FridgeOverview groups={groups} total={inventory.length} />
+      <FridgeOverview
+        groups={groups}
+        total={inventory.length}
+        onEdit={demo ? undefined : openEdit}
+        onDiscard={demo ? undefined : openDiscard}
+      />
+
+      <InventoryItemDialog
+        item={dialog?.item ?? null}
+        mode={dialog?.mode ?? 'edit'}
+        onClose={closeDialog}
+        onUpdated={handleUpdated}
+        onDiscarded={handleDiscarded}
+      />
     </div>
   );
 }

@@ -27,6 +27,7 @@ export default function ReportPage() {
             size="sm"
             onClick={() => void report.start()}
             loading={report.status === 'streaming'}
+            disabled={report.status === 'streaming'}
           >
             {report.status === 'idle' ? '生成本周周报' : '重新生成'}
           </Button>
@@ -87,7 +88,7 @@ export default function ReportPage() {
             <div className={styles.fallbackGrid}>
               <div className={styles.fallbackItem}>
                 <span className={styles.fallbackLabel}>浪费率</span>
-                <span className={styles.fallbackValue}>{formatPercent(fallback.waste_rate)}</span>
+                <span className={styles.fallbackValue}>{formatPercent(fallback.waste_rate, 1)}</span>
               </div>
               <div className={styles.fallbackItem}>
                 <span className={styles.fallbackLabel}>吃掉</span>

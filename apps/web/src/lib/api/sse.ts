@@ -116,6 +116,24 @@ export async function streamPost<T>(
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  // 只有收到终态事件才算正常结束：reader 读完但没 done/result 视为断流
+  let sawDone = false;
+  let sawError = false;
+  const tracked: StreamHandlers<T> = {
+    ...handlers,
+    onResult: (payload) => {
+      sawDone = true;
+      handlers.onResult?.(payload);
+    },
+    onDone: () => {
+      sawDone = true;
+      handlers.onDone?.();
+    },
+    onError: (error) => {
+      sawError = true;
+      handlers.onError?.(error);
+    },
+  };
   try {
     for (;;) {
       const { done, value } = await reader.read();
@@ -123,12 +141,15 @@ export async function streamPost<T>(
       buffer += decoder.decode(value, { stream: true });
       const chunks = buffer.split('\n\n');
       buffer = chunks.pop() ?? '';
-      for (const chunk of chunks) handleChunk(chunk, handlers);
+      for (const chunk of chunks) handleChunk(chunk, tracked);
     }
-    if (buffer.trim()) handleChunk(buffer, handlers);
+    if (buffer.trim()) handleChunk(buffer, tracked);
   } catch (err) {
     if (isAbortError(err)) throw err;
     throw new ApiError('network', '流式连接中断，请重试', 0);
+  }
+  if (!sawDone && !sawError) {
+    throw new ApiError('stream_incomplete', '流式连接提前结束，没有收到完成标记，请重试', 0);
   }
 }
 

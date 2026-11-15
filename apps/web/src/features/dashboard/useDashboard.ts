@@ -17,6 +17,10 @@ export interface DashboardState {
   /** 真实的 4xx/5xx 信息（不再伪装成演示数据） */
   error: string | null;
   reload: () => Promise<void>;
+  /** 改数量/到期日后用后端返回的整条记录替换，不重启整页 */
+  replaceItem: (item: InventoryItem) => void;
+  /** 丢弃成功后从当前库存移除 */
+  removeItem: (id: string) => void;
 }
 
 export function useDashboard(): DashboardState {
@@ -51,5 +55,15 @@ export function useDashboard(): DashboardState {
     void load();
   }, [load]);
 
-  return { inventory, suggestion, loading, demo, error, reload: load };
+  const replaceItem = useCallback((updated: InventoryItem): void => {
+    setInventory((previous) =>
+      previous.map((item) => (item.id === updated.id ? updated : item)),
+    );
+  }, []);
+
+  const removeItem = useCallback((id: string): void => {
+    setInventory((previous) => previous.filter((item) => item.id !== id));
+  }, []);
+
+  return { inventory, suggestion, loading, demo, error, reload: load, replaceItem, removeItem };
 }

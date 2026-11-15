@@ -8,6 +8,8 @@ export const LOW_CONFIDENCE = 0.7;
 export interface DraftRow {
   key: string;
   name: string;
+  /** 识别时的原始名称：改名后不能再按原 item_id 计克数/碳/价格 */
+  originalName: string;
   /** 以字符串保存，允许输入过程中为空 */
   qty: string;
   unit: string;
@@ -23,6 +25,7 @@ export function toDraftRows(items: RecognizedItem[]): DraftRow[] {
   return items.map((item, index) => ({
     key: `${item.name}-${index}`,
     name: item.name,
+    originalName: item.name,
     qty: `${item.qty}`,
     unit: item.unit,
     expiresAt: item.expires_at,
@@ -31,6 +34,11 @@ export function toDraftRows(items: RecognizedItem[]): DraftRow[] {
     itemId: item.item_id,
     included: true,
   }));
+}
+
+/** 名称被改过就丢掉原 item_id，交给后端按新名称重新匹配 */
+export function itemIdForRow(row: DraftRow): string | null {
+  return row.name.trim() === row.originalName.trim() ? row.itemId : null;
 }
 
 /** 需要人工确认的条数：低置信度或未匹配 */

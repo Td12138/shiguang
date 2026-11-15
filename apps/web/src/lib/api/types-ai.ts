@@ -27,8 +27,8 @@ export interface RecipeRecommendation {
   /** 0–1 排序分 */
   score: number;
   /**
-   * 这道菜用掉的库存明细。当前后端 suggest 未返回（已记录为缺口），
-   * 前端按 inventory_id 存在与否决定「做了」是直接扣减还是弹窗确认。
+   * 这道菜用掉的库存明细。qty 与对应库存条目同单位，
+   * 「做了」按 qty / 库存 qty 的比例折算克数，不能整条扣完。
    */
   uses?: PlanMealUse[];
 }
@@ -83,9 +83,10 @@ export interface StatsSummary {
 
 export interface PlanMealUse {
   name: string;
+  /** 与库存条目同单位（后端已折算），用于按比例扣减 */
   qty: number;
   unit: string;
-  /** 契约未列出；后端若补上，前端可直接按 id 扣库存 */
+  /** 后端补上后前端可直接按 id 扣库存 */
   inventory_id?: string;
 }
 

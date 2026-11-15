@@ -1,9 +1,10 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { applyReconcile, describeApiError, loadReconcile } from '@/lib/api';
 import type { DiscardReason, MissingAction, ReconcileApplied, ReconcileResult } from '@/lib/api';
 import {
   DEFAULT_REASON,
   buildApplyPayload,
+  keepAllQty,
   payloadSize,
   reducedQtyErrors,
   summarize,
@@ -30,12 +31,15 @@ export function useReconcile(): ReconcileState {
   const [addedPicked, setAddedPicked] = useState<Record<string, boolean>>({});
   const [requestId, setRequestId] = useState<string | null>(null);
   const manual = useManualRows();
+  /** apply 进行中的同步锁：防双击重复落库 */
+  const applyingRef = useRef(false);
 
   const resetChoices = useCallback((): void => {
     setChoices({});
-    setReducedQtyState({});
+    // 「全部保留」= 维持原数量：显式写回 from_qty，避免默认回退 to_qty 把 AI 减量写进库存
+    setReducedQtyState(keepAllQty(result));
     setAddedPicked({});
-  }, []);
+  }, [result]);
 
   const resetAll = useCallback((): void => {
     resetChoices();
@@ -121,6 +125,11 @@ export function useReconcile(): ReconcileState {
   }, [result]);
 
   const apply = useCallback(async (): Promise<boolean> => {
+    if (applyingRef.current) return false;
+    if (demo) {
+      setApplyError('当前是演示数据，应用不会写回库存；连上后端后重新对账再试');
+      return false;
+    }
     if (invalid) {
       setApplyError('有数量不合法：改成大于 0 的数字（可用 0.5）再应用');
       return false;
@@ -143,6 +152,7 @@ export function useReconcile(): ReconcileState {
 
     setStage('applying');
     setApplyError(null);
+    applyingRef.current = true;
     try {
       const response = await applyReconcile(payload);
       setApplied(response.applied);
@@ -154,8 +164,10 @@ export function useReconcile(): ReconcileState {
       setApplyError(describeApiError(err));
       setStage('review');
       return false;
+    } finally {
+      applyingRef.current = false;
     }
-  }, [result, choices, reducedQty, addedPicked, manual.items, invalid, resetAll, requestId]);
+  }, [result, choices, reducedQty, addedPicked, manual.items, invalid, resetAll, requestId, demo]);
 
   const reset = useCallback((): void => {
     setStage('idle');

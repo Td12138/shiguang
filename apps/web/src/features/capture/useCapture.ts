@@ -1,9 +1,9 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { MOCK_RECOGNITION, createInventory, describeApiError, isTransportError, recognizeImage } from '@/lib/api';
 import type { CreateInventoryItemInput, RecognizedItem } from '@/lib/api';
 import { parsePositiveQty } from '@/lib/qty';
 import { uploadSizeError } from '@/lib/upload';
-import { countNeedConfirm, rowQtyError, toDraftRows, type DraftRow } from './captureRows';
+import { countNeedConfirm, itemIdForRow, rowQtyError, toDraftRows, type DraftRow } from './captureRows';
 import { useManualRows } from './useManualRows';
 import type { CaptureStage, CaptureState } from './captureTypes';
 
@@ -21,6 +21,8 @@ export function useCapture(): CaptureState {
   const [added, setAdded] = useState<number | null>(null);
   const [demoSubmit, setDemoSubmit] = useState(false);
   const manual = useManualRows();
+  /** 提交进行中的同步锁：按钮 disabled 之外再兜一层，防双击重复入库 */
+  const submittingRef = useRef(false);
 
   const rowErrors = useMemo(() => {
     const map: Record<string, string> = {};
@@ -87,6 +89,7 @@ export function useCapture(): CaptureState {
   }, []);
 
   const submit = useCallback(async (): Promise<boolean> => {
+    if (submittingRef.current) return false;
     if (invalid) {
       setSubmitError('有数量不合法：改成大于 0 的数字（可用 0.5）再提交');
       return false;
@@ -100,7 +103,7 @@ export function useCapture(): CaptureState {
         unit: row.unit,
         expires_at: row.expiresAt,
         confidence: row.confidence,
-        item_id: row.itemId,
+        item_id: itemIdForRow(row),
       }));
     const items = [...fromRows, ...manual.items];
 
@@ -111,6 +114,7 @@ export function useCapture(): CaptureState {
 
     setStage('submitting');
     setSubmitError(null);
+    submittingRef.current = true;
     try {
       const response = await createInventory({
         ...(imageId ? { image_id: imageId } : {}),
@@ -124,6 +128,8 @@ export function useCapture(): CaptureState {
       setSubmitError(describeApiError(err));
       setStage('review');
       return false;
+    } finally {
+      submittingRef.current = false;
     }
   }, [rows, imageId, invalid, manual.items]);
 

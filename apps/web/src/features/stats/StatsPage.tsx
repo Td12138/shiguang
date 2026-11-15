@@ -117,7 +117,7 @@ export default function StatsPage() {
                 </span>
               </div>
               <div className={styles.equivalent}>
-                <span className={styles.eqValue}>{formatPercent(data.waste_rate)}</span>
+                <span className={styles.eqValue}>{formatPercent(data.waste_rate, 1)}</span>
                 <span className={styles.eqLabel}>浪费率</span>
                 <span className={styles.eqHint}>越低越好，0% 表示这段没扔过东西</span>
               </div>

@@ -26,7 +26,7 @@ export function WasteRing({ wasteRate, savedGrams, thrownGrams }: WasteRingProps
         className={styles.chart}
         viewBox={`0 0 ${SIZE} ${SIZE}`}
         role="img"
-        aria-label={`浪费率 ${formatPercent(safeRate)}，吃掉 ${Math.round(savedGrams)} 克，扔掉 ${Math.round(thrownGrams)} 克`}
+        aria-label={`浪费率 ${formatPercent(safeRate, 1)}，吃掉 ${Math.round(savedGrams)} 克，扔掉 ${Math.round(thrownGrams)} 克`}
       >
         <circle cx={center} cy={center} r={RADIUS} className={styles.track} strokeWidth={STROKE} />
         <circle
@@ -49,7 +49,7 @@ export function WasteRing({ wasteRate, savedGrams, thrownGrams }: WasteRingProps
           transform={`rotate(-90 ${center} ${center})`}
         />
         <text x={center} y={center - 2} className={styles.value} textAnchor="middle">
-          {formatPercent(safeRate)}
+          {formatPercent(safeRate, 1)}
         </text>
         <text x={center} y={center + 20} className={styles.caption} textAnchor="middle">
           浪费率

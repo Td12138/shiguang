@@ -37,6 +37,8 @@ export interface PlanState {
   plan: MealPlan | null;
   inventory: InventoryItem[];
   loading: boolean;
+  /** 库存读取失败（401/429/422 等）：页面提示并给重试，不永久骨架屏 */
+  inventoryError: string | null;
   demo: boolean;
   error: string | null;
   /** 流式生成中（与初次读数分开，便于显示时间线） */
@@ -45,6 +47,7 @@ export interface PlanState {
   streamDelta: string;
   streamSlow: boolean;
   cancelGenerate: () => void;
+  reloadInventory: () => Promise<void>;
   revising: boolean;
   reviseError: string | null;
   diff: PlanDiffState | null;

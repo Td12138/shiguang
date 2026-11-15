@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   consumeInventory,
   describeApiError,
@@ -17,6 +17,7 @@ import type {
 import { SUGGEST_STEP_NAMES } from '@/lib/stream';
 import { useStreamRun } from '@/features/stream/useStreamRun';
 import type { ConsumeLine } from './consume';
+import { lineForUse } from './consume';
 import type { ConsumeOutcome, CookState } from './cookTypes';
 
 export type { ConsumeOutcome, CookState } from './cookTypes';
@@ -38,6 +39,8 @@ export function useCook(): CookState {
   const [error, setError] = useState<string | null>(null);
   const [consuming, setConsuming] = useState(false);
   const [doneIds, setDoneIds] = useState<string[]>([]);
+  /** 扣减请求进行中的同步锁：按钮禁用之外再兜一层，防双击重复提交 */
+  const consumingRef = useRef(false);
 
   const refresh = useCallback(async (keepSelection: boolean): Promise<void> => {
     setLoading(true);
@@ -86,9 +89,12 @@ export function useCook(): CookState {
   /** 流式失败时退回非流式：后端不通则 loadSuggestion 会回样例并标 demo */
   const recoverFromStreamError = useCallback(
     async (err: ApiError, body: SuggestRequest): Promise<void> => {
-      // 传输失败、5xx，或后端还没上线流式端点（404/405）都退回非流式
+      // 传输失败、5xx、流被截断，或后端还没上线流式端点（404/405）都退回非流式
       const streamUnavailable =
-        isTransportError(err) || err.status === 404 || err.status === 405;
+        isTransportError(err) ||
+        err.code === 'stream_incomplete' ||
+        err.status === 404 ||
+        err.status === 405;
       if (!streamUnavailable) {
         setError(describeApiError(err));
         return;
@@ -129,15 +135,19 @@ export function useCook(): CookState {
 
   const consume = useCallback(
     async (recipe: RecipeRecommendation, chosen: ConsumeLine[]): Promise<ConsumeOutcome> => {
+      if (consumingRef.current) {
+        return { ok: false, consumed: [], message: '正在扣减，请稍候' };
+      }
+      // 用户在确认框里选过的行优先；没弹确认框时才按菜谱 uses 的用量自己算
       const fromRecipe = (recipe.uses ?? [])
-        .map((use) => use.inventory_id)
-        .filter((id): id is string => Boolean(id));
-      const lines: ConsumeLine[] =
-        fromRecipe.length > 0 ? fromRecipe.map((id) => ({ id })) : chosen;
+        .map((use) => lineForUse(use, inventory))
+        .filter((line): line is ConsumeLine => line !== null);
+      const lines: ConsumeLine[] = chosen.length > 0 ? chosen : fromRecipe;
       if (lines.length === 0) {
         return { ok: false, consumed: [], message: '先勾选这道菜用掉了哪些食材' };
       }
 
+      consumingRef.current = true;
       setConsuming(true);
       const consumed: string[] = [];
       try {
@@ -156,10 +166,11 @@ export function useCook(): CookState {
           message: describeApiError(err),
         };
       } finally {
+        consumingRef.current = false;
         setConsuming(false);
       }
     },
-    [refresh],
+    [inventory, refresh],
   );
 
   const reset = useCallback((): void => {

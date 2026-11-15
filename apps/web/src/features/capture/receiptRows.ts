@@ -8,6 +8,8 @@ export const LOW_CONFIDENCE = 0.7;
 export interface ReceiptRow {
   key: string;
   name: string;
+  /** 识别时的原始名称：改名后不能再按原 item_id 计克数/碳/价格 */
+  originalName: string;
   /** 以字符串保存，允许输入过程中为空 */
   qty: string;
   unit: string;
@@ -24,6 +26,7 @@ export function toRows(result: ReceiptResult): ReceiptRow[] {
   return result.items.map((item, index) => ({
     key: `receipt-${index}-${item.name}`,
     name: item.name,
+    originalName: item.name,
     qty: `${item.qty}`,
     unit: item.unit,
     price: item.price,
@@ -38,14 +41,18 @@ export function toRows(result: ReceiptResult): ReceiptRow[] {
 export function toInventoryItems(rows: ReceiptRow[]): CreateInventoryItemInput[] {
   return rows
     .filter((row) => row.included && row.name.trim())
-    .map((row) => ({
-      name: row.name.trim(),
-      qty: parsePositiveQty(row.qty) ?? 0,
-      unit: row.unit,
-      expires_at: row.expiresAt,
-      confidence: row.confidence,
-      item_id: row.itemId,
-    }));
+    .map((row) => {
+      const name = row.name.trim();
+      return {
+        name,
+        qty: parsePositiveQty(row.qty) ?? 0,
+        unit: row.unit,
+        expires_at: row.expiresAt,
+        confidence: row.confidence,
+        // 名称被改过就丢掉原 item_id，交给后端按新名称重新匹配
+        item_id: name === row.originalName.trim() ? row.itemId : null,
+      };
+    });
 }
 
 /** 数量非法的行：key → 行内错误 */

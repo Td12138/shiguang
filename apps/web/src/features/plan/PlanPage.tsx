@@ -83,6 +83,25 @@ export default function PlanPage() {
         </Notice>
       ) : null}
 
+      {plan.inventoryError ? (
+        <Notice
+          tone="error"
+          title="读取冰箱库存失败"
+          action={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void plan.reloadInventory()}
+              loading={plan.loading}
+            >
+              重试
+            </Button>
+          }
+        >
+          {plan.inventoryError}
+        </Notice>
+      ) : null}
+
       <PlanDiff diff={plan.diff} onDismiss={plan.dismissDiff} />
 
       {plan.error ? (
@@ -115,7 +134,7 @@ export default function PlanPage() {
           <Skeleton height="180px" radius="var(--radius-lg)" />
           <Skeleton height="180px" radius="var(--radius-lg)" />
         </div>
-      ) : plan.inventory.length === 0 && plan.plan === null ? (
+      ) : plan.inventory.length === 0 && plan.plan === null && !plan.inventoryError ? (
         <Card>
           <EmptyState
             title="冰箱里还没有食材"
@@ -124,13 +143,15 @@ export default function PlanPage() {
           />
         </Card>
       ) : plan.plan === null ? (
-        <Card>
-          <EmptyState
-            title="还没有生成计划"
-            description="选好天数与单餐时长，点右上角「生成计划」；有库存才能排出真实的用量分配。"
-            action={<Button onClick={() => void plan.generate()}>现在生成</Button>}
-          />
-        </Card>
+        plan.inventoryError ? null : (
+          <Card>
+            <EmptyState
+              title="还没有生成计划"
+              description="选好天数与单餐时长，点右上角「生成计划」；有库存才能排出真实的用量分配。"
+              action={<Button onClick={() => void plan.generate()}>现在生成</Button>}
+            />
+          </Card>
+        )
       ) : emptyPlan ? (
         <Card>
           <EmptyState

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { MOCK_RECEIPT, createInventory, describeApiError, recognizeReceipt } from '@/lib/api';
 import {
   countNeedConfirm,
@@ -55,6 +55,8 @@ export function useReceipt(): ReceiptState {
   const [added, setAdded] = useState<number | null>(null);
   const [demoSubmit, setDemoSubmit] = useState(false);
   const manual = useManualRows();
+  /** 提交进行中的同步锁：防双击重复入库 */
+  const submittingRef = useRef(false);
 
   const rowErrors = useMemo(() => rowQtyErrors(rows), [rows]);
   const invalid = Object.keys(rowErrors).length > 0 || manual.invalid;
@@ -115,6 +117,7 @@ export function useReceipt(): ReceiptState {
   }, []);
 
   const submit = useCallback(async (): Promise<boolean> => {
+    if (submittingRef.current) return false;
     if (invalid) {
       setSubmitError('有数量不合法：改成大于 0 的数字（可用 0.5）再提交');
       return false;
@@ -127,6 +130,7 @@ export function useReceipt(): ReceiptState {
 
     setStage('submitting');
     setSubmitError(null);
+    submittingRef.current = true;
     try {
       const response = await createInventory({
         // 契约 §6.11：购物日期只在小票识别出来时才带上
@@ -141,6 +145,8 @@ export function useReceipt(): ReceiptState {
       setSubmitError(describeApiError(err));
       setStage('review');
       return false;
+    } finally {
+      submittingRef.current = false;
     }
   }, [rows, purchasedAt, invalid, manual.items]);
 

@@ -28,7 +28,7 @@ from app.db.conn import ensure_schema, get_conn
 from app.domain import instruction as instruction_parser
 from app.domain import preferences as preference_store
 from app.domain import tools_registry
-from app.domain.inventory import now_iso
+from app.domain.inventory import now_iso, stale_active_warning
 from app.domain.recipes import (
     _Stopwatch,
     _Trace,
@@ -767,6 +767,10 @@ async def build_plan(
 
         snapshot = _split_inventory(planned.get("items", []))
         warnings.extend(_expired_warnings(snapshot))
+        # 契约 §6.14：有超过 3 天没核验的食材时必须提示先对账（不阻断生成）
+        stale_warning = stale_active_warning()
+        if stale_warning:
+            warnings.append(stale_warning)
 
         # ---- 偏好注入（契约 §6.10）：avoid 是硬约束，其余进 Prompt 软约束 ----
         prefs = preference_store.active_preferences()

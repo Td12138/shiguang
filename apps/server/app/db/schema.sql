@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS items (
     unit              TEXT
 );
 
--- 库存
+-- 库存（verified_at：最近一次核验时间，契约 §6.14 数据新鲜度）
 CREATE TABLE IF NOT EXISTS inventory (
     id          TEXT PRIMARY KEY,
     item_id     TEXT,
@@ -30,7 +30,8 @@ CREATE TABLE IF NOT EXISTS inventory (
     status      TEXT,               -- active|consumed|discarded
     image_id    TEXT,
     confidence  REAL,
-    note        TEXT
+    note        TEXT,
+    verified_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_inventory_status ON inventory(status);
 CREATE INDEX IF NOT EXISTS idx_inventory_expires ON inventory(expires_at);
@@ -66,6 +67,17 @@ CREATE TABLE IF NOT EXISTS waste_log (
     created_at    TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_waste_created ON waste_log(created_at);
+
+-- 对账落地台账（契约 §6.13 规则 4：同一 inventory_id 重复 apply 只生效一次）
+-- fingerprint = 动作 + 目标值，重复提交命中同一条就跳过
+CREATE TABLE IF NOT EXISTS reconcile_applied (
+    fingerprint   TEXT PRIMARY KEY,
+    inventory_id  TEXT,
+    action        TEXT,
+    detail        TEXT,             -- JSON：改了什么（原数量/新数量/克数/原因）
+    created_at    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_reconcile_inventory ON reconcile_applied(inventory_id);
 
 -- 业务事件（kind=consume 记「省下的食物」，用于统计口径）
 CREATE TABLE IF NOT EXISTS events (

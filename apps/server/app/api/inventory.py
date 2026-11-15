@@ -83,3 +83,11 @@ def discard_item(item_id: str, payload: DiscardIn) -> dict:
     if payload.reason not in DISCARD_REASONS:
         raise AppError("invalid_reason", "丢弃原因不合法", 400)
     return inventory_domain.discard(item_id, payload.reason, payload.grams)
+
+
+# 库存对账（契约 §6.13 / §6.14）挂在同一棵 inventory router 上：
+# 路径 /api/inventory/reconcile 与 /api/inventory/reconcile/apply，
+# 新文件里延迟导入视觉链路复用 capture，不用改 main.py 的 BUSINESS_ROUTERS。
+from app.api import reconcile as reconcile_api  # noqa: E402
+
+router.include_router(reconcile_api.router)

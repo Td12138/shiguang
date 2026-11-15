@@ -15,6 +15,7 @@ from typing import Any
 
 from app.db.conn import get_conn
 from app.domain import tools_registry
+from app.domain.inventory import stale_active_warning
 from app.domain.tools_registry import AppError, resolve_provider
 from app.rag import citations as citation_utils
 
@@ -534,6 +535,10 @@ async def suggest(
             raise AppError("plan_failed", "读取库存失败，请稍后重试", 500, str(exc)) from exc
 
         inventory_items = _select_inventory(planned["items"], use)
+        # 契约 §6.14：数据陈旧时必须提示「先拍一张对账」，但不阻断生成
+        stale_warning = stale_active_warning()
+        if stale_warning:
+            warnings.append(stale_warning)
         expired = [item for item in inventory_items if int(item.get("days_left", 0)) < 0]
         if expired:
             # 食品安全底线：过期食材不参与推荐，只提示处理

@@ -39,6 +39,10 @@ FRESH_MIN_DAYS = 4  # days_left > 3
 SOON_MIN_DAYS = 2  # 2-3 天
 URGENT_MIN_DAYS = 0  # 0-1 天
 
+# 数据新鲜度（契约 §6.14）：超过这个天数没核验就提示先拍一张对账
+STALE_DAYS_THRESHOLD = 3
+STALE_WARNING_TEMPLATE = "有 {count} 样食材超过 {days} 天未核验，建议先拍一张对账"
+
 EVENT_CONSUME = "consume"
 DISCARD_REASONS = ("forgot", "spoiled", "too_much")
 EPSILON = 1e-6
@@ -88,6 +92,14 @@ def level_for(days: int) -> str:
     return LEVEL_FRESH
 
 
+def stale_days(value: str | None, *, today_date: date | None = None) -> int:
+    """距上次核验的天数（契约 §6.14）；解析不出来按 0，永不为负。"""
+    anchor = parse_date(value)
+    if anchor is None:
+        return 0
+    return max(0, ((today_date or today()) - anchor).days)
+
+
 def _new_id(prefix: str) -> str:
     return f"{prefix}{uuid.uuid4().hex[:12]}"
 
@@ -125,6 +137,7 @@ def _row_to_dict(row) -> dict[str, Any]:
     days = days_left(data.get("expires_at"))
     data["days_left"] = days
     data["level"] = level_for(days)
+    data["stale_days"] = stale_days(data.get("verified_at") or data.get("added_at"))
     return data
 
 
@@ -168,7 +181,7 @@ def add_items(payload: dict) -> dict:
             inv_id = _new_id("inv_")
             conn.execute(
                 "INSERT INTO inventory(id,item_id,name,qty,unit,grams,added_at,expires_at,"
-                "status,image_id,confidence,note) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "status,image_id,confidence,note,verified_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     inv_id,
                     item["id"] if item else raw.get("item_id"),
@@ -182,6 +195,8 @@ def add_items(payload: dict) -> dict:
                     image_id,
                     raw.get("confidence"),
                     str(raw.get("note") or ""),
+                    # 契约 §6.14：入库即算一次核验（小票补录也按当前时间算，不按购物日）
+                    now_iso(),
                 ),
             )
             ids.append(inv_id)
@@ -216,6 +231,28 @@ def get_inventory(inv_id: str) -> dict:
         return _row_to_dict(_fetch(conn, inv_id))
     finally:
         conn.close()
+
+
+def stale_active_count(threshold_days: int = STALE_DAYS_THRESHOLD) -> int:
+    """active 库存里超过 threshold_days 天没核验的条目数（契约 §6.14）。"""
+    return sum(
+        1
+        for item in list_inventory(STATUS_ACTIVE)
+        if int(item.get("stale_days") or 0) > threshold_days
+    )
+
+
+def stale_active_warning(
+    threshold_days: int = STALE_DAYS_THRESHOLD,
+) -> str | None:
+    """给 recipes/suggest 与 plan/meals 用的新鲜度提示；没有陈旧数据返回 None。
+
+    契约 §6.14：该提示必须出现，但不阻断生成，所以调用方只 append 不 return。
+    """
+    count = stale_active_count(threshold_days)
+    if count <= 0:
+        return None
+    return STALE_WARNING_TEMPLATE.format(count=count, days=threshold_days)
 
 
 def update_inventory(
@@ -294,8 +331,8 @@ def consume(inv_id: str, grams: float | None = None) -> dict:
         take, left, carbon_kg, money = _consume_query(conn, row, grams)
         status = STATUS_CONSUMED if left <= EPSILON else STATUS_ACTIVE
         conn.execute(
-            "UPDATE inventory SET qty = ?, grams = ?, status = ? WHERE id = ?",
-            (_qty_after(row, left), max(left, 0.0), status, inv_id),
+            "UPDATE inventory SET qty = ?, grams = ?, status = ?, verified_at = ? WHERE id = ?",
+            (_qty_after(row, left), max(left, 0.0), status, now_iso(), inv_id),
         )
         conn.execute(
             "INSERT INTO events(id,kind,payload,created_at) VALUES(?,?,?,?)",
@@ -344,8 +381,8 @@ def discard(inv_id: str, reason: str, grams: float | None = None) -> dict:
         take, left, carbon_kg, _money = _consume_query(conn, row, grams)
         status = STATUS_DISCARDED if left <= EPSILON else STATUS_ACTIVE
         conn.execute(
-            "UPDATE inventory SET qty = ?, grams = ?, status = ? WHERE id = ?",
-            (_qty_after(row, left), max(left, 0.0), status, inv_id),
+            "UPDATE inventory SET qty = ?, grams = ?, status = ?, verified_at = ? WHERE id = ?",
+            (_qty_after(row, left), max(left, 0.0), status, now_iso(), inv_id),
         )
         conn.execute(
             "INSERT INTO waste_log(id,inventory_id,name,grams,reason,carbon_kg,created_at)"

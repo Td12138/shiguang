@@ -26,6 +26,13 @@ SQLITE_TIMEOUT_SECONDS = 30.0
 # 进程内已确认建表完成的库路径（init_db / ensure_schema 都维护它）
 _SCHEMA_READY: set[str] = set()
 
+# 老库补列清单：`CREATE TABLE IF NOT EXISTS` 不会给已存在的表加列，
+# 新增列必须在 schema.sql 与这里各登记一次（键=表名，值=(列名, 类型)）。
+MIGRATION_COLUMNS: dict[str, tuple[tuple[str, str], ...]] = {
+    # 契约 §6.14：数据新鲜度
+    "inventory": (("verified_at", "TEXT"),),
+}
+
 
 def db_path() -> Path:
     """当前生效的数据库文件路径（每次读取环境变量，便于测试切换）。"""
@@ -68,6 +75,23 @@ def _remove_db_files() -> None:
             candidate.unlink()
 
 
+def _apply_migrations(conn: sqlite3.Connection) -> list[str]:
+    """给已存在的老库补新列（幂等：列已存在就跳过），返回本次补上的 "表.列"。"""
+    added: list[str] = []
+    for table, columns in MIGRATION_COLUMNS.items():
+        existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+        if not existing:
+            continue  # 表还没建出来：schema.sql 已建好带新列的表，无需补
+        for name, decl in columns:
+            if name in existing:
+                continue
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
+            added.append(f"{table}.{name}")
+    if added:
+        logger.info("老库补列完成：%s", ", ".join(added))
+    return added
+
+
 def ensure_schema() -> None:
     """幂等建表（每个库路径每进程只跑一次）。
 
@@ -80,6 +104,7 @@ def ensure_schema() -> None:
     conn = get_conn()
     try:
         conn.executescript(SCHEMA_FILE.read_text(encoding="utf-8"))
+        _apply_migrations(conn)
         conn.commit()
     finally:
         conn.close()
@@ -98,6 +123,7 @@ def init_db(force: bool = False) -> None:
     conn = get_conn()
     try:
         conn.executescript(SCHEMA_FILE.read_text(encoding="utf-8"))
+        _apply_migrations(conn)
         conn.commit()
         _SCHEMA_READY.add(str(path))
         item_count = conn.execute("SELECT COUNT(*) FROM items").fetchone()[0]

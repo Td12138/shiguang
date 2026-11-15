@@ -77,7 +77,9 @@ function Fail {
 # 把脚本经 stdin 交给远端 bash：避免多层引号与 $ 展开地狱；换行统一 LF，避免 bash 读到 \r
 function ConvertTo-RemoteText {
     param([Parameter(Mandatory)][string]$Script)
-    return ((($Script -replace "`r`n", "`n").TrimEnd()) + "`n")
+    # 去掉所有 CR（不只 CRLF）：Windows here-string/编辑器可能留下孤立 \r，
+    # 远端 bash 会把它当成命令的一部分（典型报错：$'\r': command not found）。
+    return ((($Script -replace "`r", "").TrimEnd()) + "`n")
 }
 
 function Invoke-Remote {
@@ -241,7 +243,7 @@ find "$RELEASE" -maxdepth 2 -printf '%M %u:%g %p\n' | sed -n '1,8p'
         # Windows checkout 可能是 CRLF：统一转 LF 再上传，避免远端 bash 把 \r 当命令的一部分
         New-Item -ItemType Directory -Force -Path $uploadDir | Out-Null
         foreach ($name in @("install.sh", "shiguang.service")) {
-            $text = ([IO.File]::ReadAllText((Join-Path $installDir $name))) -replace "`r`n", "`n"
+            $text = ([IO.File]::ReadAllText((Join-Path $installDir $name))) -replace "`r", ""
             [IO.File]::WriteAllText((Join-Path $uploadDir $name), $text, (New-Object Text.UTF8Encoding($false)))
         }
         Invoke-Remote @'

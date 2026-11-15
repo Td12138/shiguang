@@ -16,5 +16,6 @@ build/
 data/index/
 data/upload/
 data/out/
+apps/server/data/
 *.log
 .DS_Store

@@ -578,6 +578,19 @@ def _compose_messages(
     ]
 
 
+def _fill_from_greedy(model_rows: list[dict], greedy_rows: list[dict]) -> list[dict]:
+    """模型只排了一部分餐时，用贪心结果补齐空槽，避免整份计划降级。"""
+    taken = {(row.get("day"), row.get("slot")) for row in model_rows}
+    merged = list(model_rows)
+    for row in greedy_rows:
+        key = (row.get("day"), row.get("slot"))
+        if key in taken:
+            continue
+        merged.append(row)
+        taken.add(key)
+    return merged
+
+
 def _parse_compose(
     data: Any, candidates: list[dict], day_count: int
 ) -> list[dict] | None:
@@ -870,6 +883,12 @@ async def build_plan(
             warnings.append(DEGRADE_WARNING)
             trace.add(STEP_COMPOSE, STATE_DEGRADED, watch, "模型不可用，按检索结果贪心配餐")
         else:
+            filled = _fill_from_greedy(assignments, greedy)
+            if len(filled) > len(assignments):
+                warnings.append(
+                    f"模型只排了 {len(assignments)} 餐，其余 {len(filled) - len(assignments)} 餐用规则补齐"
+                )
+            assignments = filled
             trace.add(
                 STEP_COMPOSE,
                 STATE_OK,

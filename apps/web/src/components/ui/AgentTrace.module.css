@@ -1,0 +1,138 @@
+.wrap {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.loading {
+  padding: var(--space-2) 0;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--fs-1);
+  color: var(--color-text-faint);
+}
+
+.runId {
+  font-family: var(--font-mono);
+}
+
+.state {
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-weight: var(--fw-bold);
+}
+
+.timeline {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+.step:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 13px;
+  top: 26px;
+  bottom: 4px;
+  width: 2px;
+  background: var(--color-border);
+}
+
+.marker {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-size: var(--fs-1);
+  font-weight: var(--fw-bold);
+  z-index: 1;
+}
+
+.step[data-status='error'] .marker {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.step[data-status='pending'] .marker {
+  background: var(--color-surface-muted);
+  color: var(--color-text-faint);
+  border: 1px solid var(--color-border);
+}
+
+.stepBody {
+  display: grid;
+  gap: 2px;
+  padding-top: 3px;
+  min-width: 0;
+}
+
+.stepHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+  font-size: var(--fs-2);
+}
+
+.badge {
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-size: 11px;
+  font-weight: var(--fw-bold);
+}
+
+.badge[data-status='error'] {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.badge[data-status='running'],
+.badge[data-status='pending'] {
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+}
+
+.ms {
+  color: var(--color-text-faint);
+  font-size: var(--fs-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.summary {
+  color: var(--color-text-muted);
+  font-size: var(--fs-2);
+}
+
+.error {
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  font-size: var(--fs-2);
+}
+
+.hint {
+  color: var(--color-text-muted);
+  font-size: var(--fs-2);
+}

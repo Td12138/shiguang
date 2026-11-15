@@ -1,0 +1,23 @@
+.emptyCard {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.emptyNote {
+  padding-bottom: var(--space-3);
+  text-align: center;
+  color: var(--color-text-faint);
+  font-size: var(--fs-1);
+}

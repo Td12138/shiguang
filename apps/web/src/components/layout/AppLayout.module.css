@@ -1,0 +1,59 @@
+.shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.skip {
+  position: absolute;
+  left: -9999px;
+  top: var(--space-1);
+  z-index: 100;
+  padding: 10px var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: #fff;
+  font-size: var(--fs-2);
+}
+
+.skip:focus {
+  left: var(--space-1);
+}
+
+.main {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-left: var(--layout-sidebar);
+  display: flex;
+  flex-direction: column;
+}
+
+.content {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: var(--layout-max);
+  margin: 0 auto;
+  padding: var(--space-2) var(--space-5) var(--space-6);
+}
+
+.footer {
+  width: 100%;
+  max-width: var(--layout-max);
+  margin: 0 auto;
+  padding: 0 var(--space-5) var(--space-4);
+  color: var(--color-text-faint);
+  font-size: var(--fs-1);
+}
+
+@media (max-width: 767px) {
+  .main {
+    margin-left: 0;
+  }
+
+  .content {
+    padding: var(--space-1) var(--space-3) calc(var(--layout-tabbar) + var(--space-5));
+  }
+
+  .footer {
+    padding: 0 var(--space-3) calc(var(--layout-tabbar) + var(--space-4));
+  }
+}

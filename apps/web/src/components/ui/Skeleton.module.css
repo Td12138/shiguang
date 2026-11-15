@@ -1,0 +1,21 @@
+.wrap {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.bar {
+  display: block;
+  background: linear-gradient(90deg, #eeece4 25%, #f6f4ee 50%, #eeece4 75%);
+  background-size: 240% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 140% 0;
+  }
+
+  to {
+    background-position: -40% 0;
+  }
+}

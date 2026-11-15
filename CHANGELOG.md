@@ -5,6 +5,8 @@
 ## 未发布
 
 ### 新增
+- **小票识别**：`POST /api/capture/receipt`，拍小票/外卖单批量入库（借自 FridgeMate、FridgeVision 的「购物后自动登记」思路）
+- **备菜流水线**：`POST /api/cook/sequence`，多道菜的并行烹饪时间轴（借自 cooking-agent 的「备菜流水线」）
 - **饮食计划**：`POST /api/plan/meals`，3 天配餐 + 覆盖统计 + 采购清单；五步 Agent（understand→plan→allocate→compose→verify）
   - 证据：`apps/server/app/domain/plan.py`、`tests/test_plan.py`；实测 3 天计划、`coverage {used_items:6, expiring_used:3}`
 - **对话改计划**：`POST /api/plan/meals/{plan_id}/revise`，只重排受影响餐次并返回 `changed` diff
@@ -21,9 +23,26 @@
 - 404/422 返回体不统一 → 统一 `{code,message,detail?}`，且 `/api/*` 不再回退成 index.html
 - 健康检查连接未关闭 → 显式 close；`ok` 与 db 状态联动
 
+### 竞品借鉴（GitHub 调研，2026-11-15）
+
+调研范围：`fridge food waste`、`food inventory app`、`食材管理`、`recipe rag llm`、`meal planner ai` 五组关键词，共看 20+ 仓库，代表性项目：FridgeMate_AI、FridgeVision(FreshTrackAI)、fridge_guardian(冰箱守卫者)、AIrecipe、cooking-agent、nishiki、home-inventory、AI-Meal-Planner。
+
+| 借鉴点 | 出处 | 我们的处理 |
+|---|---|---|
+| 小票/订单批量登记 | FridgeMate、FridgeVision | ✅ 新增 `/api/capture/receipt`，复用 VLM + 别名表 |
+| 备菜流水线（并行时间轴） | cooking-agent | ✅ 新增 `/api/cook/sequence` |
+| 定时巡检 + 主动提醒 | fridge_guardian（Spring Task） | ⏳ 前端通知 + 首页 digest（本轮做） |
+| 分类 + 存放位置（冷藏/冷冻/常温） | fridge_guardian、home-inventory | ⏳ 分类已补；位置字段按需再加 |
+| 红黄绿徽章 + 「明天过期/已过期 2 天」文案 | fridge_guardian | ✅ 已有分级，文案沿用 |
+| 浪费率饼图 / 消费看板 | fridge_guardian、AIrecipe | ✅ 已有（手写 SVG，不引图表库） |
+| 扫码条码入库 | PlateSwipe | ❌ 放弃：中文商品条码库成本高，VLM 拍小票更通用 |
+| 摄像头常驻自动登记 | FridgeVision | ❌ 放弃：需要硬件与常开设备，省赛演示不现实 |
+| 用户认证 / JWT / 多用户 | fridge_guardian、merran | ❌ 放弃：单人本地应用，认证不产生评分收益，反而拖工期 |
+| 营养/热量分析 | AI-Meal-Planner | ❌ 放弃：医疗口径风险高，评审一问「依据是什么」就崩 |
+
 ### 决策记录（带理由）
+
 | 决策 | 理由 |
-|---|---|
 | 识别结果不直接入库，必须人工确认 | 模型会错（实测数量返回 null、置信度虚高为 1.0），承认错误比假装准确更可信 |
 | 降级放业务层，模型层只负责「成功或明确失败」 | 避免「AI 挂了却假装成功」，这是安全可控性的实证点 |
 | 过期食材绝不进推荐/计划，只提示处理 | 食品安全底线，且能演示「规则硬约束不是提示词祈祷」 |

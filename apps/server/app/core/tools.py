@@ -96,7 +96,7 @@ _SCHEMA_GET_SHELF_LIFE: dict[str, Any] = {
     "type": "function",
     "function": {
         "name": TOOL_GET_SHELF_LIFE,
-        "description": "查询某食材在指定储存方式下的建议保质期（天）与保存技巧。",
+        "description": "查询某食材的推荐保质期（天）与保存技巧；storage 只作为查询口径，库内记录的是条目参考天数。",
         "parameters": {
             "type": "object",
             "properties": {
@@ -104,7 +104,7 @@ _SCHEMA_GET_SHELF_LIFE: dict[str, Any] = {
                 "storage": {
                     "type": "string",
                     "enum": ["fridge", "freezer", "room"],
-                    "description": "储存方式：fridge=冷藏（默认），freezer=冷冻，room=常温",
+                    "description": "储存方式：fridge=冷藏（默认），freezer=冷冻，room=常温；非冷藏时返回 storage_note 说明口径",
                 },
             },
             "required": ["name"],
@@ -121,7 +121,10 @@ _SCHEMA_ESTIMATE_CARBON: dict[str, Any] = {
         "parameters": {
             "type": "object",
             "properties": {
-                "name": {"type": "string", "description": "食材名称；缺省时按通用蔬菜因子估算"},
+                "name": {
+                    "type": "string",
+                    "description": "食材名称；缺省或未匹配时碳当量按 0 计（不编造因子）",
+                },
                 "grams": {"type": "number", "minimum": 0, "description": "重量（克）"},
             },
             "required": ["grams"],

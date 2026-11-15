@@ -178,7 +178,10 @@ def _match_rows(
     by_item: dict[str, list[dict]],
     by_name: dict[str, list[dict]],
 ) -> list[dict]:
-    """先 item_id，再同名，最后名称互含（名称已在 API 层按别名表折算成标准名）。"""
+    """先 item_id，再精确同名（名称已在 API 层按别名表折算成标准名）。
+
+    不做名称互相包含：否则「番茄酱」会命中库存里的「番茄」，把调味酱当成番茄减量。
+    """
     if rec.get("item_id"):
         rows = by_item.get(str(rec["item_id"]))
         if rows:
@@ -188,17 +191,7 @@ def _match_rows(
     rows = by_name.get(name)
     if rows:
         return list(rows)
-
-    containing: list[dict] = []
-    for other_name, other_rows in by_name.items():
-        if name and (name in other_name or other_name in name):
-            containing.extend(other_rows)
-    if not containing:
-        return []
-
-    # 互含可能命中多个名称：取最长的那个名称组（「番茄」优先于「番茄酱」）
-    longest = max(len(_norm_text(row.get("name"))) for row in containing)
-    return [row for row in containing if len(_norm_text(row.get("name"))) == longest]
+    return []
 
 
 def _sort_by_expiry(rows: list[dict]) -> list[dict]:
@@ -383,28 +376,51 @@ def _ledger_exists(fingerprint: str) -> bool:
     return row is not None
 
 
-def _ledger_add(
-    request_id: str,
-    fingerprint: str,
-    inventory_id: str | None,
-    action: str,
-    detail: dict,
+def _claim_fingerprint(
+    request_id: str, fingerprint: str, inventory_id: str | None, action: str
+) -> bool:
+    """事务内原子占位：同一 fingerprint 只允许一个请求拿到执行权。
+
+    `_ledger_exists` 在事务外预检只能挡顺序重放；两个并发请求会同时通过预检，
+    然后在事务里各自扣一次库存。这里用 INSERT ... ON CONFLICT DO NOTHING
+    抢主键，rowcount==1 的请求才执行动作，另一个按幂等跳过。
+    """
+    conn = get_conn()
+    try:
+        cursor = conn.execute(
+            "INSERT INTO reconcile_applied"
+            "(fingerprint,request_id,inventory_id,action,detail,created_at) VALUES(?,?,?,?,?,?)"
+            " ON CONFLICT(fingerprint) DO NOTHING",
+            (fingerprint, request_id, inventory_id, action, None, now_iso()),
+        )
+        conn.commit()  # 事务内由外层统一提交
+        return int(cursor.rowcount or 0) == 1
+    finally:
+        conn.close()
+
+
+def _finalize_fingerprint(
+    fingerprint: str, inventory_id: str | None, action: str, detail: dict
 ) -> None:
+    """动作成功后补全台账 detail（占位行已在事务内抢到）。"""
     conn = get_conn()
     try:
         conn.execute(
-            "INSERT OR IGNORE INTO reconcile_applied"
-            "(fingerprint,request_id,inventory_id,action,detail,created_at) VALUES(?,?,?,?,?,?)",
-            (
-                fingerprint,
-                request_id,
-                inventory_id,
-                action,
-                json.dumps(detail, ensure_ascii=False),
-                now_iso(),
-            ),
+            "UPDATE reconcile_applied SET inventory_id = ?, action = ?, detail = ?"
+            " WHERE fingerprint = ?",
+            (inventory_id, action, json.dumps(detail, ensure_ascii=False), fingerprint),
         )
-        conn.commit()  # 事务内由外层统一提交（见 db.conn.transaction）
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _release_fingerprint(fingerprint: str) -> None:
+    """动作没落地（例如事务内状态已变）时退回占位，保持「未生效不记账」。"""
+    conn = get_conn()
+    try:
+        conn.execute("DELETE FROM reconcile_applied WHERE fingerprint = ?", (fingerprint,))
+        conn.commit()
     finally:
         conn.close()
 
@@ -769,6 +785,14 @@ def apply(payload: dict) -> dict:
     with transaction():
         for op in ops:
             kind = op["kind"]
+            action_label = op.get("action") or kind
+            if not _claim_fingerprint(
+                request_id, op["fingerprint"], op.get("inventory_id"), action_label
+            ):
+                # 并发同 request_id：另一个请求已在事务里抢到同一条指纹
+                skipped += 1
+                warnings.append(SKIP_ALREADY_APPLIED_TEMPLATE.format(name=op["name"]))
+                continue
 
             if kind == "added":
                 result = inventory_domain.add_items(
@@ -786,7 +810,9 @@ def apply(payload: dict) -> dict:
                     "qty": _round_qty(op["qty"]),
                     "unit": op["unit"],
                 }
-                _ledger_add(request_id, op["fingerprint"], detail["inventory_id"], "added", detail)
+                _finalize_fingerprint(
+                    op["fingerprint"], detail["inventory_id"], "added", detail
+                )
                 if added_count:
                     actions.append(detail)
                 continue
@@ -796,6 +822,7 @@ def apply(payload: dict) -> dict:
                     op["inventory_id"], op["target_qty"], op["current_qty"], op["before_grams"]
                 )
                 if not changed:  # 事务内状态已变（理论上第 1 阶段已挡住）
+                    _release_fingerprint(op["fingerprint"])
                     skipped += 1
                     warnings.append(SKIP_STATE_CHANGED_TEMPLATE.format(name=op["name"]))
                     continue
@@ -809,7 +836,9 @@ def apply(payload: dict) -> dict:
                     "grams_before": round(op["before_grams"], 2),
                     "grams_after": new_grams,
                 }
-                _ledger_add(request_id, op["fingerprint"], op["inventory_id"], "reduced", detail)
+                _finalize_fingerprint(
+                    op["fingerprint"], op["inventory_id"], "reduced", detail
+                )
                 actions.append(detail)
                 continue
 
@@ -841,7 +870,9 @@ def apply(payload: dict) -> dict:
                     "grams_before": round(op["before_grams"], 2),
                     "consumed_grams": result.get("consumed_grams"),
                 }
-            _ledger_add(request_id, op["fingerprint"], op["inventory_id"], op["action"], detail)
+            _finalize_fingerprint(
+                op["fingerprint"], op["inventory_id"], op["action"], detail
+            )
             actions.append(detail)
 
         # 留痕与业务改动同事务：要么都落库，要么一起回滚

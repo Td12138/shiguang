@@ -101,7 +101,7 @@ def _normalize_items(raw_items: list[dict]) -> tuple[list[dict], list[str]]:
             normalized = shared._normalize(raw)
             if not normalized["name"]:
                 continue
-            name, item = matcher._match_item(conn, normalized["name"])
+            name, item = matcher._match_item(conn, normalized["name"], fuzzy=False)
             items.append(
                 {
                     "name": name,
@@ -152,6 +152,7 @@ async def reconcile_inventory(file: UploadFile = File(...)) -> dict:
             encoded = base64.b64encode(content).decode("ascii")
             data = await provider.chat_vision(encoded, mime, RECONCILE_PROMPT)
             raw_items = shared._flatten(data) if isinstance(data, dict) else []
+            warnings.extend(shared._provider_warnings(data))
             provider_ok = True
         except Exception as exc:
             logger.warning("对账识别失败：%s", exc)

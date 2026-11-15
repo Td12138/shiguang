@@ -22,6 +22,7 @@ REPORT_RANGE = "30d"
 TIP_QUERY_LIMIT = 2
 TEMPLATE_CHUNK_SIZE = 40
 DISCLAIMER = "碳当量为估算，基于公开因子表。"
+MOCK_PROVIDER_NAME = "mock"
 
 SYSTEM_PROMPT = (
     "阶段：report\n你是「食光」的剩食管家，用中文写一段轻松的周报，"
@@ -122,8 +123,9 @@ async def stream_weekly(provider=None) -> AsyncIterator[dict]:
     context = _build_context()
     llm = resolve_provider(provider)
 
-    if llm is None:
-        logger.info("无可用模型，周报走模板文本")
+    if llm is None or getattr(llm, "name", "") == MOCK_PROVIDER_NAME:
+        # mock 的固定文案会和统计页数字对不上：周报统一用当前 context 的模板文本
+        logger.info("无可用模型或 mock 提供方，周报走模板文本")
         for piece in _template_deltas(context):
             yield {"type": "delta", "text": piece}
     else:

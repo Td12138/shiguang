@@ -44,6 +44,35 @@ def test_add_items_meters_grams_and_expiry(app_db, add_item):
     assert result["ids"] == [row["id"]]
 
 
+def test_find_item_does_not_match_substring(app_db, add_item):
+    """「番茄酱」不能命中「番茄」：库外食材应保持未匹配，不能套用番茄的克数/碳因子。"""
+    from app.db.conn import get_conn
+
+    add_item("番茄", avg_grams=150.0)
+    conn = get_conn()
+    try:
+        assert inv.find_item(conn, "番茄酱", fuzzy=False) is None
+        assert inv.find_item(conn, "番茄", fuzzy=False)["name"] == "番茄"
+    finally:
+        conn.close()
+
+
+def test_add_items_ignores_stale_item_id_after_rename(app_db, add_item):
+    """用户把识别名从西兰花改成番茄后，旧 item_id 不能继续决定克数/碳因子。"""
+    broccoli_id = add_item("西兰花", avg_grams=300.0)
+    tomato_id = add_item("番茄", avg_grams=150.0)
+
+    result = inv.add_items(
+        {"items": [{"name": "番茄", "item_id": broccoli_id, "qty": 1}]}
+    )
+
+    row = inv.list_inventory("active")[0]
+    assert result["added"] == 1
+    assert row["name"] == "番茄"
+    assert row["item_id"] == tomato_id
+    assert row["grams"] == pytest.approx(150.0)
+
+
 def test_consume_then_discard(app_db, add_item):
     add_item("西兰花", avg_grams=300.0, carbon_kg_per_kg=2.5, price_per_kg=10.0)
     inv_id = inv.add_items({"items": [{"name": "西兰花", "qty": 2}]})["ids"][0]

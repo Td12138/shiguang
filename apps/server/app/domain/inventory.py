@@ -104,17 +104,23 @@ def _new_id(prefix: str) -> str:
     return f"{prefix}{uuid.uuid4().hex[:12]}"
 
 
-def find_item(conn, name: str, item_id: str | None = None):
-    """按 id / 精确名 / 互相包含匹配食材库，找不到返回 None。"""
+def find_item(conn, name: str, item_id: str | None = None, *, fuzzy: bool = True):
+    """按 id / 精确名匹配食材库；fuzzy=True 时才做名称互含（供历史调用兜底）。
+
+    传入 item_id 时只在该 id 的名称与 name 一致时采用，避免用户改名后仍按旧 id
+    计算克数/碳因子（如「西兰花」改成「番茄」却继续用西兰花的数据）。
+    """
     if item_id:
         row = conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
-        if row:
+        if row and (not name or row["name"] == name):
             return row
     if not name:
         return None
     row = conn.execute("SELECT * FROM items WHERE name = ?", (name,)).fetchone()
     if row:
         return row
+    if not fuzzy:
+        return None
     return conn.execute(
         "SELECT * FROM items WHERE ? LIKE '%' || name || '%' OR name LIKE '%' || ? || '%'"
         " ORDER BY LENGTH(name) DESC LIMIT 1",
@@ -171,7 +177,7 @@ def add_items(payload: dict) -> dict:
             name = str(raw.get("name") or "").strip()
             if not name:
                 continue
-            item = find_item(conn, name, raw.get("item_id"))
+            item = find_item(conn, name, raw.get("item_id"), fuzzy=False)
             qty = float(raw.get("qty") or DEFAULT_QTY)
             avg_grams = _item_metric(item, "avg_grams", DEFAULT_AVG_GRAMS)
             grams = qty * avg_grams

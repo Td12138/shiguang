@@ -20,6 +20,10 @@ logger = logging.getLogger(__name__)
 DEFAULT_LIST_LIMIT = 10
 DEFAULT_RECIPE_LIMIT = 6
 RECIPE_CANDIDATE_MULTIPLIER = 2
+DEFAULT_STORAGE = "fridge"
+STORAGE_MODES = ("fridge", "freezer", "room")
+CONSUME_ACTIONS = ("consume", "discard")
+DEFAULT_DISCARD_REASON = "spoiled"
 
 try:  # 契约 §7.1：core 提供，B 只调用
     from app.core.errors import AppError  # type: ignore[assignment]
@@ -66,36 +70,52 @@ def _loads(value: str | None, default):
         return default
 
 
-def list_inventory(sort: str = "expiry", limit: int = DEFAULT_LIST_LIMIT) -> dict:
+def list_inventory(
+    sort: str = "expiry", limit: int = DEFAULT_LIST_LIMIT, status: str = "active"
+) -> dict:
     """临期优先的库存列表（Agent `plan` 步调用）。"""
     from app.domain import inventory as inventory_domain
 
-    items = inventory_domain.list_inventory("active")
+    items = inventory_domain.list_inventory(status or "active")
     if sort == "added":
         items.sort(key=lambda item: item.get("added_at") or "", reverse=True)
+    elif sort == "qty":
+        items.sort(key=lambda item: item.get("qty") or 0, reverse=True)
     else:
         items.sort(key=lambda item: item.get("days_left", 0))
-    return {"items": items[: max(limit, 1)], "count": len(items), "sort": sort}
+    return {
+        "items": items[: max(limit, 1)],
+        "count": len(items),
+        "sort": sort,
+    }
 
 
-def get_shelf_life(name: str) -> dict:
-    """查食材保质期与保存建议。"""
+def get_shelf_life(name: str, storage: str = DEFAULT_STORAGE) -> dict:
+    """查食材保质期与保存建议；storage 只是查询口径，库内天数按条目自身基准。"""
     from app.db.conn import get_conn
     from app.domain.inventory import find_item
 
+    normalized_storage = str(storage or DEFAULT_STORAGE).strip().lower()
+    if normalized_storage not in STORAGE_MODES:
+        normalized_storage = DEFAULT_STORAGE
+
     conn = get_conn()
     try:
-        row = find_item(conn, str(name or "").strip())
+        row = find_item(conn, str(name or "").strip(), fuzzy=False)
     finally:
         conn.close()
 
     if row is None:
-        return {
+        result = {
             "name": name,
             "matched": False,
             "message": "食材库里没有这个食材，无法给出保质期（不编造数据）",
         }
-    return {
+        if normalized_storage != DEFAULT_STORAGE:
+            result["storage"] = normalized_storage
+            result["storage_note"] = f"食材库没有这个食材，{normalized_storage} 也无法给出天数"
+        return result
+    result = {
         "name": row["name"],
         "matched": True,
         "item_id": row["id"],
@@ -107,17 +127,33 @@ def get_shelf_life(name: str) -> dict:
         "carbon_kg_per_kg": row["carbon_kg_per_kg"],
         "price_per_kg": row["price_per_kg"],
     }
+    if normalized_storage != DEFAULT_STORAGE:
+        result["storage"] = normalized_storage
+        result["storage_note"] = (
+            f"食材库只记录该条目的参考天数（{row['shelf_life_days']} 天），"
+            f"{normalized_storage} 储存请参考 storage_tip，不编造数字"
+        )
+    return result
 
 
-def estimate_carbon(name: str, grams: float) -> dict:
-    """按食材碳因子估算碳当量与金额（碳账唯一口径）。"""
+def estimate_carbon(name: str | None = "", grams: float = 0.0) -> dict:
+    """按食材碳因子估算碳当量与金额（碳账唯一口径）；name 缺省/未匹配按 0 计。"""
     from app.domain.inventory import DEFAULT_CARBON_KG_PER_KG, DEFAULT_PRICE_PER_KG
 
-    detail = get_shelf_life(name)
+    detail = get_shelf_life(name or "")
+    try:
+        grams = float(grams or 0)
+    except (TypeError, ValueError):
+        grams = 0.0
     if not detail.get("matched"):
-        return {"name": name, "matched": False, "carbon_kg": 0.0, "money": 0.0, "grams": grams}
+        return {
+            "name": name or "",
+            "matched": False,
+            "carbon_kg": 0.0,
+            "money": 0.0,
+            "grams": grams,
+        }
 
-    grams = float(grams or 0)
     carbon_factor = float(detail.get("carbon_kg_per_kg") or DEFAULT_CARBON_KG_PER_KG)
     price = float(detail.get("price_per_kg") or DEFAULT_PRICE_PER_KG)
     return {
@@ -196,9 +232,36 @@ def _missing_ingredients(recipe_ingredients: list[dict], stocks: list[str]) -> l
     return missing
 
 
-def log_consumption(inventory_id: str, grams: float | None = None) -> dict:
-    """消耗库存并记账（Agent 确认「我做了这道菜」时调用）。"""
+def log_consumption(
+    inventory_id: str,
+    grams: float | None = None,
+    action: str = "consume",
+    reason: str | None = None,
+) -> dict:
+    """消耗 / 丢弃库存并记账（Agent 确认「我做了这道菜」或「扔了」时调用）。"""
     from app.domain import inventory as inventory_domain
+
+    normalized_action = str(action or "consume").strip().lower()
+    if normalized_action not in CONSUME_ACTIONS:
+        raise AppError(
+            "invalid_action",
+            f"action 只能是 {'/'.join(CONSUME_ACTIONS)} 之一",
+            400,
+        )
+
+    if normalized_action == "discard":
+        data = inventory_domain.discard(
+            inventory_id, str(reason or DEFAULT_DISCARD_REASON).strip(), grams
+        )
+        return {
+            "inventory_id": inventory_id,
+            "action": normalized_action,
+            "reason": data.get("reason") or str(reason or DEFAULT_DISCARD_REASON).strip(),
+            "discarded_grams": data.get("discarded_grams", 0.0),
+            "carbon_kg": data.get("carbon_kg", 0.0),
+            "status": data.get("status"),
+            "level": data.get("level"),
+        }
 
     data = inventory_domain.consume(inventory_id, grams)
     return {

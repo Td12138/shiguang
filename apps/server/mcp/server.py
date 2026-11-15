@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import sys
 from pathlib import Path
 from typing import Any, Callable
@@ -24,6 +25,8 @@ from typing import Any, Callable
 SERVER_ROOT = Path(__file__).resolve().parents[1]
 if str(SERVER_ROOT) not in sys.path:
     sys.path.insert(0, str(SERVER_ROOT))
+
+logger = logging.getLogger(__name__)
 
 SERVER_NAME = "shiguang-mcp"
 SERVER_VERSION = "0.1.0"
@@ -96,9 +99,23 @@ def _normalize_ingredients(value: Any) -> list[str]:
     return []
 
 
+def _ensure_db() -> None:
+    """新 clone 直接跑 MCP 也不能报 no such table：建表 + 空库灌种子（幂等）。"""
+    try:
+        from app.db.conn import init_db
+    except ImportError:
+        logger.warning("app.db.conn 不可用，MCP 工具只能跑纯内存逻辑")
+        return
+    try:
+        init_db()
+    except Exception:
+        logger.exception("MCP 初始化数据库失败（工具仍会尝试执行）")
+
+
 def _tool_search_recipes(arguments: dict) -> dict:
     from app.domain.tools_registry import find_recipes
 
+    _ensure_db()
     ingredients = _normalize_ingredients(arguments.get("ingredients"))
     try:
         max_minutes = int(arguments.get("max_minutes") or 30)
@@ -132,6 +149,7 @@ def _tool_search_recipes(arguments: dict) -> dict:
 def _tool_get_shelf_life(arguments: dict) -> dict:
     from app.domain.tools_registry import get_shelf_life
 
+    _ensure_db()
     name = str(arguments.get("name") or "").strip()
     if not name:
         raise ValueError("缺少参数 name")
@@ -208,6 +226,7 @@ def serve(stdin=None, stdout=None) -> int:
     """逐行读取 JSON-RPC 请求，逐行写回响应（stdio 传输）。"""
     stdin = stdin or sys.stdin
     stdout = stdout or sys.stdout
+    _ensure_db()  # 启动即建表 + 空库灌种子，工具调用不会撞 no such table
     for line in stdin:
         line = line.strip()
         if not line:

@@ -24,8 +24,11 @@ LOGGER = logging.getLogger(__name__)
 
 AUTH_HEADER = "authorization"
 BASIC_PREFIX = "basic "
-RATE_LIMIT_EXEMPT_PATHS = config.RATE_LIMIT_EXEMPT_PATHS
 AUTH_EXEMPT_PATHS = ("/api/health",)  # 健康检查免认证：只返回 ok/provider/db，不含敏感信息
+# 静态资源与首页不计限流：一次刷新首页就是 20+ 请求，计入会把正常访问打成 429
+STATIC_EXEMPT_PATHS = ("/", "/index.html", "/assets")
+STATIC_EXEMPT_PREFIXES = ("/assets/",)
+RATE_LIMIT_EXEMPT_PATHS = (*config.RATE_LIMIT_EXEMPT_PATHS, *STATIC_EXEMPT_PATHS)
 BUCKET_CLEANUP_EVERY = 500  # 每 N 次请求清理一次空桶，避免长期运行内存只增不减
 
 
@@ -56,15 +59,16 @@ class SecurityMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         path = request.url.path
-        if self.auth is not None and path not in AUTH_EXEMPT_PATHS and not self._check_auth(request):
-            return _unauthorized("需要登录后访问演示站")
-
-        if self.limit and path not in RATE_LIMIT_EXEMPT_PATHS and not self._allow(request):
+        # 先限流再认证：否则匿名爆破只会拿到无限次 401，限流形同虚设
+        if self.limit and not self._rate_limit_exempt(path) and not self._allow(request):
             return JSONResponse(
                 status_code=429,
                 content={"code": "rate_limited", "message": "请求过于频繁，请稍后再试"},
                 headers={"Retry-After": str(int(self.window))},
             )
+
+        if self.auth is not None and path not in AUTH_EXEMPT_PATHS and not self._check_auth(request):
+            return _unauthorized("需要登录后访问演示站")
 
         length = request.headers.get("content-length")
         if length and length.isdigit() and int(length) > config.MAX_UPLOAD_BYTES:
@@ -85,6 +89,9 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         for ip in stale:
             self.hits.pop(ip, None)
 
+    def _rate_limit_exempt(self, path: str) -> bool:
+        return path in RATE_LIMIT_EXEMPT_PATHS or path.startswith(STATIC_EXEMPT_PREFIXES)
+
     def _check_auth(self, request: Request) -> bool:
         assert self.auth is not None
         header = request.headers.get(AUTH_HEADER, "")
@@ -92,14 +99,14 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             return False
         try:
             raw = base64.b64decode(header[len(BASIC_PREFIX) :], validate=True).decode("utf-8")
-        except (binascii.Error, UnicodeDecodeError):
+        except (binascii.Error, UnicodeDecodeError, ValueError):
             return False
         user, _, password = raw.partition(":")
         expected_user, expected_password = self.auth
-        # 常量时间比较，避免口令泄露时序
-        return hmac.compare_digest(user, expected_user) and hmac.compare_digest(
-            password, expected_password
-        )
+        # 常量时间比较，避免口令泄露时序；先 encode 成 bytes，非 ASCII 凭据不会抛 TypeError
+        return hmac.compare_digest(
+            user.encode("utf-8"), expected_user.encode("utf-8")
+        ) and hmac.compare_digest(password.encode("utf-8"), expected_password.encode("utf-8"))
 
     def _allow(self, request: Request) -> bool:
         client = request.client.host if request.client else "unknown"

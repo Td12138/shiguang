@@ -7,6 +7,8 @@
 from __future__ import annotations
 
 import json
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 
 import pytest
@@ -295,6 +297,26 @@ def test_reconcile_empty_recognition_keeps_everything(
     assert body["suspect"] == []
     assert any("全部保留" in warning for warning in body["warnings"])
     assert len(inv.list_inventory("active")) == 2
+
+
+def test_reconcile_merges_provider_warnings(client, add_item, fake_provider, reconcile_env):
+    """对账响应也要带出 provider warnings（mock 回放提示不能丢）。"""
+    add_item("生菜", avg_grams=300.0, unit="颗")
+    inv.add_items({"items": [{"name": "生菜", "qty": 1}]})
+    warning = "当前为 mock 回放数据（未调用真实视觉模型），识别结果请人工确认"
+    reconcile_env(
+        fake_provider(
+            vision={
+                "items": [{"name": "生菜", "qty": 1, "unit": "颗", "confidence": 0.9}],
+                "warnings": [warning],
+            }
+        )
+    )
+
+    body = _post(client).json()
+
+    assert body["missing"] == [] and body["reduced"] == []
+    assert warning in body["warnings"]
 
 
 def test_reconcile_alias_name_matches_inventory(client, add_item, fake_provider, reconcile_env):
@@ -638,5 +660,158 @@ def test_invalid_verified_at_falls_back_to_added_at(client, add_item):
 
     listed = client.get("/api/inventory", params={"status": "active"}).json()
     assert listed[0]["stale_days"] == 6
+
+
+# --------------------------------------------------------------------------- #
+# 名称匹配：不做双向 substring（番茄酱 ≠ 番茄）
+# --------------------------------------------------------------------------- #
+
+def _inventory_row(inv_id: str, name: str, qty: float, unit: str = "份") -> dict:
+    return {
+        "id": inv_id,
+        "name": name,
+        "qty": qty,
+        "unit": unit,
+        "expires_at": (inv.today() + timedelta(days=2)).isoformat(),
+        "days_left": 2,
+    }
+
+
+def test_superstring_recognition_does_not_hit_shorter_inventory_name():
+    """识别「番茄酱」不能命中库存「番茄」：应缺番茄、新增番茄酱，且不减量。"""
+    from app.domain import reconcile as reconcile_domain
+
+    diff = reconcile_domain.build_diff(
+        [{"name": "番茄酱", "qty": 1, "unit": "瓶", "confidence": 0.9}],
+        [_inventory_row("inv_tomato", "番茄", 3, "个")],
+    )
+
+    assert diff["reduced"] == []
+    assert [row["inventory_id"] for row in diff["missing"]] == ["inv_tomato"]
+    assert [row["name"] for row in diff["added"]] == ["番茄酱"]
+
+
+def test_shorter_recognition_does_not_hit_superstring_inventory_name():
+    """识别「番茄」不能命中库存「番茄酱」（反方向同样不能互含）。"""
+    from app.domain import reconcile as reconcile_domain
+
+    diff = reconcile_domain.build_diff(
+        [{"name": "番茄", "qty": 3, "unit": "个", "confidence": 0.9}],
+        [_inventory_row("inv_sauce", "番茄酱", 1, "瓶")],
+    )
+
+    assert diff["reduced"] == []
+    assert [row["inventory_id"] for row in diff["missing"]] == ["inv_sauce"]
+    assert [row["name"] for row in diff["added"]] == ["番茄"]
+
+
+def test_exact_name_and_item_id_still_match():
+    """去掉互含后，精确同名与 item_id 命中必须保留。"""
+    from app.domain import reconcile as reconcile_domain
+
+    inventory = [
+        _inventory_row("inv_tomato", "番茄", 3, "个"),
+        _inventory_row("inv_egg", "鸡蛋", 6, "个"),
+    ]
+
+    by_name = reconcile_domain.build_diff(
+        [{"name": "番茄", "qty": 3, "unit": "个", "confidence": 0.9}], inventory
+    )
+    assert by_name["missing"] and [row["inventory_id"] for row in by_name["missing"]] == ["inv_egg"]
+    assert by_name["reduced"] == [] and by_name["added"] == []
+
+    by_id = reconcile_domain.build_diff(
+        [{"name": "番茄（大）", "item_id": "i_tomato", "qty": 3, "confidence": 0.9}],
+        [
+            {**_inventory_row("inv_tomato", "番茄", 3, "个"), "item_id": "i_tomato"},
+            _inventory_row("inv_egg", "鸡蛋", 6, "个"),
+        ],
+    )
+    assert [row["inventory_id"] for row in by_id["missing"]] == ["inv_egg"]
+    assert by_id["added"] == []
+
+
+def test_concurrent_apply_same_request_id_only_applies_once(monkeypatch, add_item):
+    """并发同 request_id：事务内原子占 fingerprint，只允许一个请求扣库存/写 waste_log。"""
+    from app.domain import reconcile as reconcile_domain
+
+    add_item("生菜", avg_grams=300.0, unit="颗", carbon_kg_per_kg=1.8)
+    inv_id = inv.add_items({"items": [{"name": "生菜", "qty": 2}]})["ids"][0]  # 600g
+
+    # 模拟 TOCTOU：两个请求都通过了事务外的预检
+    monkeypatch.setattr(reconcile_domain, "_ledger_exists", lambda fingerprint: False)
+
+    payload = {
+        "request_id": "req_race",
+        "missing": [
+            {
+                "inventory_id": inv_id,
+                "action": "discarded",
+                "reason": "spoiled",
+                "grams": 120,
+            }
+        ],
+    }
+    barrier = threading.Barrier(2)
+
+    def _run() -> dict:
+        barrier.wait()
+        return reconcile_domain.apply(payload)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = [future.result() for future in (pool.submit(_run), pool.submit(_run))]
+
+    assert sum(result["applied"]["discarded"] for result in results) == 1
+    assert sum(result["skipped"] for result in results) >= 1
+
+    conn = get_conn()
+    try:
+        waste = conn.execute(
+            "SELECT grams FROM waste_log WHERE inventory_id = ?", (inv_id,)
+        ).fetchall()
+    finally:
+        conn.close()
+    assert len(waste) == 1, "同一 request_id 并发只能写一条 waste_log"
+    assert waste[0]["grams"] == pytest.approx(120.0)
+    assert inv.get_inventory(inv_id)["grams"] == pytest.approx(480.0)
+    assert len(_events("reconcile")) == 1
+
+
+def test_reconcile_api_superstring_name_not_canonicalized(
+    client, add_item, fake_provider, reconcile_env
+):
+    """API 层的别名匹配也不能把「番茄酱」折成「番茄」（否则域层修复被绕过）。"""
+    add_item("番茄", avg_grams=180.0, unit="个")
+    inv_id = inv.add_items({"items": [{"name": "番茄", "qty": 3}]})["ids"][0]
+    reconcile_env(
+        fake_provider(
+            vision={"items": [{"name": "番茄酱", "qty": 1, "unit": "瓶", "confidence": 0.9}]}
+        )
+    )
+
+    body = _post(client).json()
+
+    assert [row["inventory_id"] for row in body["missing"]] == [inv_id]
+    assert [row["name"] for row in body["added"]] == ["番茄酱"]
+    assert body["reduced"] == []
+
+
+def test_reconcile_api_shorter_name_not_canonicalized(
+    client, add_item, fake_provider, reconcile_env
+):
+    """反方向：库存「番茄酱」时，识别「番茄」也不能被模糊折成番茄酱。"""
+    add_item("番茄酱", avg_grams=250.0, unit="瓶")
+    inv_id = inv.add_items({"items": [{"name": "番茄酱", "qty": 1}]})["ids"][0]
+    reconcile_env(
+        fake_provider(
+            vision={"items": [{"name": "番茄", "qty": 3, "unit": "个", "confidence": 0.9}]}
+        )
+    )
+
+    body = _post(client).json()
+
+    assert [row["inventory_id"] for row in body["missing"]] == [inv_id]
+    assert [row["name"] for row in body["added"]] == ["番茄"]
+    assert body["reduced"] == []
 
 

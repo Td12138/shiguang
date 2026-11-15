@@ -33,6 +33,11 @@ FIXTURES_DIR = SERVER_ROOT / "app" / "data" / "fixtures"
 LOW_CONFIDENCE = 0.7
 DEFAULT_CONFIDENCE = 0.6
 DEFAULT_QTY = 1.0
+# 模型没给数量时按 1 暂存，但不假装看得清：置信度封顶 + 明确 warning
+QTY_MISSING_CONFIDENCE = 0.5
+PROVIDER_WARNING_LIMIT = 3
+DEGRADE_WARNING = "已降级：视觉模型不可用，返回内置样例，请务必人工核对"
+EMPTY_ITEMS_MESSAGE = "未识别到食材，请重拍一张更清晰的照片，或手动录入"
 EXT_BY_MIME = {
     "image/jpeg": ".jpg",
     "image/jpg": ".jpg",
@@ -97,16 +102,31 @@ def _normalize(raw: dict) -> dict:
         confidence = float(raw.get("confidence", DEFAULT_CONFIDENCE))
     except (TypeError, ValueError):
         confidence = DEFAULT_CONFIDENCE
+    raw_qty = raw.get("qty")
+    qty_missing = raw_qty in (None, "")
     try:
-        qty = float(raw.get("qty", DEFAULT_QTY))
+        qty = float(raw_qty)
     except (TypeError, ValueError):
         qty = DEFAULT_QTY
+        qty_missing = True
     return {
         "name": str(raw.get("name") or raw.get("食材") or "").strip(),
         "qty": qty,
+        "qty_missing": qty_missing,
         "unit": str(raw.get("unit") or "").strip(),
         "confidence": round(max(0.0, min(confidence, 1.0)), 3),
     }
+
+
+def _provider_warnings(data: object) -> list[str]:
+    """合并 provider 自带 warnings（mock 回放提示等），最多 3 条、只收非空字符串。"""
+    if not isinstance(data, dict):
+        return []
+    raw = data.get("warnings")
+    if not isinstance(raw, list):
+        return []
+    picked = [item.strip() for item in raw if isinstance(item, str) and item.strip()]
+    return picked[:PROVIDER_WARNING_LIMIT]
 
 
 def _stored_path(path: Path) -> str:
@@ -149,24 +169,24 @@ async def recognize(file: UploadFile = File(...)) -> dict:
     warnings: list[str] = []
     provider = resolve_provider(None)
     raw_items: list[dict] = []
-    used_fixture = False
+    provider_ok = False
 
     if provider is not None:
         try:
             encoded = base64.b64encode(content).decode("ascii")
             data = await provider.chat_vision(encoded, mime, VISION_PROMPT)
             raw_items = _flatten(data)
+            warnings.extend(_provider_warnings(data))
+            provider_ok = True
         except Exception as exc:
             logger.warning("视觉识别失败：%s", exc)
-            warnings.append("已降级：视觉模型不可用，返回内置样例，请务必人工核对")
 
-    if not raw_items:
+    if not raw_items and not provider_ok:
+        # 只有 provider 不可用才回填内置样例；provider 正常但什么都没识别出来是用户照片的问题
         raw_items = _load_fixture()
-        used_fixture = bool(raw_items)
-        if raw_items and not any("已降级" in item for item in warnings):
-            warnings.append("已降级：视觉模型不可用，返回内置样例，请务必人工核对")
         if not raw_items:
             raise AppError("vision_unavailable", "视觉识别服务不可用，请稍后重试", 502)
+        warnings.append(DEGRADE_WARNING)
 
     items: list[dict] = []
     conn = get_conn()
@@ -175,11 +195,13 @@ async def recognize(file: UploadFile = File(...)) -> dict:
             normalized = _normalize(raw)
             if not normalized["name"]:
                 continue
-            item = find_item(conn, normalized["name"])
+            item = find_item(conn, normalized["name"], fuzzy=False)
             shelf = int(item["shelf_life_days"] or DEFAULT_SHELF_LIFE_DAYS) if item else DEFAULT_SHELF_LIFE_DAYS
             expires_at = (today() + timedelta(days=shelf)).isoformat()
             unit = normalized["unit"] or (item["unit"] if item and item["unit"] else "份")
             confidence = normalized["confidence"]
+            if normalized["qty_missing"]:
+                confidence = min(confidence, QTY_MISSING_CONFIDENCE)
 
             items.append(
                 {
@@ -193,6 +215,11 @@ async def recognize(file: UploadFile = File(...)) -> dict:
                     "matched": bool(item),
                 }
             )
+            if normalized["qty_missing"]:
+                warnings.append(
+                    f"第 {index} 项「{normalized['name']}」没有识别到数量，"
+                    f"已按 {normalized['qty']:g} {unit} 暂存（置信度已下调），请核对"
+                )
             if confidence < LOW_CONFIDENCE:
                 warnings.append(
                     f"第 {index} 项「{normalized['name']}」识别置信度较低（{confidence}），请确认"
@@ -213,8 +240,13 @@ async def recognize(file: UploadFile = File(...)) -> dict:
     finally:
         conn.close()
 
-    if used_fixture and not items:
-        raise AppError("vision_unavailable", "没有识别出任何食材，请换一张更清晰的照片", 422)
+    if not items:
+        if provider_ok:
+            # 模型正常但没识别出任何食材：返回空列表 + 重拍提示，绝不拿样例冒充识别结果
+            if EMPTY_ITEMS_MESSAGE not in warnings:
+                warnings.append(EMPTY_ITEMS_MESSAGE)
+        else:
+            raise AppError("vision_unavailable", "没有识别出任何食材，请换一张更清晰的照片", 422)
 
     return {"image_id": image_id, "items": items, "warnings": warnings}
 

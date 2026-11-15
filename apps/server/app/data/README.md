@@ -7,7 +7,7 @@
 
 | 文件 | 内容 | 条数 | 被谁用 |
 |---|---|---|---|
-| `items.json` | 食材主数据（保质期 / 碳因子 / 价格 / 单件克重 / 保存建议） | 60 | `inventory`、`stats`、`capture` 匹配、`get_shelf_life` 工具 |
+| `items.json` | 食材主数据（保质期 / 碳因子 / 价格 / 单件克重 / 保存建议） | 69 | `inventory`、`stats`、`capture` 匹配、`get_shelf_life` 工具 |
 | `recipes.json` | 家常菜谱（食材、步骤、时长、标签） | 30 | `recipes`、RAG 语料、`find_recipes` 工具 |
 | `tips.md` | 保存技巧，一节一条 | 20 | RAG 语料，`source` = `tip:<序号>` |
 | `fixtures/recognize_fridge.json` | 模拟 VLM 识别输出，8 项 | 8 | `mock` provider 的 `chat_vision` |
@@ -25,6 +25,7 @@
 | `avg_grams` | 一「单位」（个/颗/把/盒/袋/瓶/碗…）的可食部分平均克数，用于 `grams = qty × avg_grams` |
 | `unit` | 购买时最自然的计量单位，和 `avg_grams` 绑定；菜谱里允许换成克/毫升 |
 | 菜谱 `minutes` | 从洗菜到出锅的总时长，不含腌制等待之外的静置 |
+| 出处 | 数据表不逐条带 `source`；三类数据的来源与误差集中在 `docs/06-数据来源与合规.md` §2–§3 |
 
 ## 数值分档（便于自查，不是精确值）
 
@@ -57,7 +58,7 @@
 3. 自查（在 `apps/server` 下执行）：
 
 ```powershell
-& E:\code\py_venv\.venv\Scripts\python.exe -c "import json,pathlib;d=pathlib.Path('app/data');i=json.loads((d/'items.json').read_text(encoding='utf-8'));r=json.loads((d/'recipes.json').read_text(encoding='utf-8'));n={x['name'] for x in i};print(len(i),len(n),len(r));print([(x['id'],g['name']) for x in r for g in x['ingredients'] if g['name'] not in n and not g.get('optional')])"
+python -c "import json,pathlib;d=pathlib.Path('app/data');i=json.loads((d/'items.json').read_text(encoding='utf-8'));r=json.loads((d/'recipes.json').read_text(encoding='utf-8'));n={x['name'] for x in i};print(len(i),len(n),len(r));print([(x['id'],g['name']) for x in r for g in x['ingredients'] if g['name'] not in n and not g.get('optional')])"
 ```
 
 约定：

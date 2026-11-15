@@ -150,8 +150,12 @@ def _alias_map() -> dict[str, str]:
     return _ALIASES
 
 
-def _match_item(conn, name: str) -> tuple[str, Any]:
-    """先精确、再别名、最后模糊包含；返回 (标准名, items 行或 None)。"""
+def _match_item(conn, name: str, *, fuzzy: bool = True) -> tuple[str, Any]:
+    """先精确、再别名、最后（可选）模糊包含；返回 (标准名, items 行或 None)。
+
+    ``fuzzy=False`` 供库存对账使用：对账只认精确名/别名，
+    否则「番茄酱」会被映射成「番茄」，把调味酱当成番茄减量。
+    """
     row = conn.execute("SELECT * FROM items WHERE name = ?", (name,)).fetchone()
     if row is not None:
         return row["name"], row
@@ -160,6 +164,8 @@ def _match_item(conn, name: str) -> tuple[str, Any]:
         row = conn.execute("SELECT * FROM items WHERE name = ?", (alias,)).fetchone()
         if row is not None:
             return row["name"], row
+    if not fuzzy:
+        return name, None
     row = find_item(conn, name)
     if row is not None:
         return row["name"], row

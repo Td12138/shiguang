@@ -92,6 +92,22 @@ REVISE_LIGHT_BONUS = 2.0
 REVISE_SWAP_BONUS = 5.0
 REVISE_HEAVY_PENALTY = 1.0
 REVISE_SAME_RECIPE_PENALTY = 0.5
+# 软偏好（time）落成打分：越慢越减分，单位是每分钟
+REVISE_QUICK_PENALTY = 0.05
+
+SOFT_LIGHT_HINTS: tuple[str, ...] = (
+    "清淡",
+    "少油",
+    "少盐",
+    "低油",
+    "低盐",
+    "轻食",
+    "减脂",
+    "健康",
+    "不油",
+    "素一点",
+)
+SOFT_QUICK_HINTS: tuple[str, ...] = ("快", "简单", "省时", "快手", "方便", "别太复杂")
 
 LIGHT_KEYWORDS: tuple[str, ...] = (
     "清炒",
@@ -113,6 +129,35 @@ REVISE_CONFLICT_TEMPLATE = "本次指令要「{name}」，与你之前记住的�
 REVISE_LEARNED_LOW_TEMPLATE = "可能记住：{text}（置信度 {confidence}，确认后才会生效）"
 REVISE_SCOPE_TEMPLATE = "{date} {slot}"
 REVISE_WHOLE_PLAN = "整份计划"
+
+# 点名菜没换成的固定前缀（缺陷 2：不许换错菜还报成功）
+REVISE_SWAP_FAILED_PREFIX = "没能换成{name}："
+REVISE_SWAP_SCOPE_TEMPLATE = "{scope}：{reason}"
+REVISE_SWAP_MISSING_TEMPLATE = REVISE_SWAP_FAILED_PREFIX + "菜谱库里没有这道菜"
+REVISE_SWAP_MINUTES_TEMPLATE = (
+    REVISE_SWAP_FAILED_PREFIX + "这道菜要 {minutes} 分钟，超过单餐 {limit} 分钟的限制"
+)
+REVISE_SWAP_BLOCKED_TEMPLATE = (
+    REVISE_SWAP_FAILED_PREFIX + "这道菜含你忌口的食材（{names}）"
+)
+REVISE_SWAP_STOCK_TEMPLATE = (
+    REVISE_SWAP_FAILED_PREFIX + "现有食材做不了这道菜（不编造库存），这次先不换"
+)
+REVISE_SWAP_ALREADY_TEMPLATE = "{scope}本来就是「{title}」，这次不用换"
+# 未涉及的餐次沿用存档用量：与原计划对不上时明确提示，不静默重算
+REVISE_OVERCLAIM_TEMPLATE = (
+    "「{name}」当前库存 {stock}{unit}，计划里累计要用 {planned}{unit}"
+    "（未涉及的餐次按原样保留、没有按现库存重算），不够的话记得先补货"
+)
+REVISE_FROZEN_EXPIRED_TEMPLATE = (
+    "未涉及的餐次沿用原计划，其中「{names}」已经过期，动手前先确认一下"
+)
+REVISE_SOFT_TRACE_TEMPLATE = "已应用 {count} 条偏好（{lines}）"
+REVISE_SOFT_REASON_TEMPLATE = "参考你的口味偏好（{text}）"
+REVISE_DRIFT_WARNING = (
+    "这次改动会连带动到没点名的餐次（{names}），为保证「未涉及的不变」已放弃本次改动"
+)
+REVISE_USAGE_ONLY_REASON = "用量按当前库存重算"
 
 
 def _new_plan_id() -> str:
@@ -471,8 +516,14 @@ def verify(
     snapshot: dict,
     *,
     blocked: set[str] | None = None,
+    frozen_keys: set[tuple[str, str]] | None = None,
 ) -> tuple[dict, list[str]]:
-    """执行契约 §6.8 的 5 条规则（+ 偏好忌口硬约束），返回 (coverage, problems)。"""
+    """执行契约 §6.8 的 5 条规则（+ 偏好忌口硬约束），返回 (coverage, problems)。
+
+    `frozen_keys` 只给「改计划」用：这些餐次沿用存档里的用量，不再按当前库存
+    复算（契约 §6.9 规则 1），因此不参与「累计不超库存」的复算，过期/忌口也
+    不在这里重复报（改计划侧另外给提示）。
+    """
     problems: list[str] = []
     stock = snapshot["stock"]
     expired_names = {item["name"] for item in snapshot["expired"]}
@@ -486,18 +537,25 @@ def verify(
             problems.append(f"第 {day['date']} 没有任何餐次")
         for meal in day["meals"]:
             meal_count += 1
+            frozen = bool(
+                frozen_keys and (str(day["date"]), str(meal.get("slot"))) in frozen_keys
+            )
             recipe_id = str(meal.get("recipe_id") or "")
             if not recipe_id or recipe_id not in known_recipes:
                 problems.append(f"第 {day['date']} 的 {meal.get('slot')} 没挂真实 recipe_id")
             if not meal.get("citations"):
                 problems.append(f"第 {day['date']} 的 {meal.get('slot')} 缺 citations")
             for use in meal.get("uses", []):
+                if frozen:
+                    continue  # 未涉及餐次：存档用量原样保留，不按当前库存判过期/超量
                 if use["name"] in expired_names:
                     problems.append(f"过期食材「{use['name']}」进了计划")
                 if _hits_blocked(use["name"], blocked):
                     problems.append(f"忌口食材「{use['name']}」进了计划")
                 totals[use["name"]] = totals.get(use["name"], 0.0) + float(use["qty"])
             for missing in meal.get("missing", []):
+                if frozen:
+                    continue
                 if _hits_blocked(missing["name"], blocked):
                     problems.append(f"忌口食材「{missing['name']}」被列进菜谱")
 
@@ -527,6 +585,8 @@ def verify(
     shopping_names = set(names)
     for day in days:
         for meal in day["meals"]:
+            if frozen_keys and (str(day["date"]), str(meal.get("slot"))) in frozen_keys:
+                continue  # 未涉及餐次沿用存档，缺料清单已随存档保留
             for missing in meal.get("missing", []):
                 if missing.get("optional"):
                     continue  # 可选调味料不进采购清单（契约 §6.8 规则 5 只约束必买）
@@ -1034,21 +1094,30 @@ class ReviseIntent(BaseModel):
     swap_to: str | None = Field(default=None, description="点名想换成的菜名")
 
 
-def _revise_messages(instruction: str, day_count: int, vocabulary: list[str]) -> list[dict]:
+def _revise_messages(
+    instruction: str,
+    day_count: int,
+    vocabulary: list[str],
+    preference_lines: list[str] | None = None,
+) -> list[dict]:
     # 刻意不提「配餐 / 饮食计划」，避免 mock 回放数据被误判成配餐结果
-    user = "\n".join(
-        [
-            f"用户在一份已有 {day_count} 天的吃饭安排上提了一个修改要求：{instruction}",
-            f"可选食材名（avoid 只能从这里取）：{'、'.join(vocabulary[:60]) or '（无）'}",
-            '输出 JSON：{"days":[2],"slots":["午餐"],"avoid":["鸡蛋"],"requested":[],'
-            '"light":true,"swap_to":null,"note":"一句话"}',
-            'days 是第几天（从 1 开始，空数组表示整份安排）；slots 为空表示当天所有餐次；',
-            "avoid 只放用户明确不要的食材；light 表示要清淡少油；swap_to 是用户点名想换成的菜名。",
+    sections = [
+        f"用户在一份已有 {day_count} 天的吃饭安排上提了一个修改要求：{instruction}",
+        f"可选食材名（avoid 只能从这里取）：{'、'.join(vocabulary[:60]) or '（无）'}",
+        '输出 JSON：{"days":[2],"slots":["午餐"],"avoid":["鸡蛋"],"requested":[],'
+        '"light":true,"swap_to":null,"note":"一句话"}',
+        'days 是第几天（从 1 开始，空数组表示整份安排）；slots 为空表示当天所有餐次；',
+        "avoid 只放用户明确不要的食材；light 表示要清淡少油；swap_to 是用户点名想换成的菜名。",
+    ]
+    if preference_lines:
+        # 契约 §6.10：软偏好也必须进同一份 Prompt，否则改计划等于没记住偏好
+        sections += [
+            "用户已记住的偏好（忌口是硬性要求，其余尽量满足）：",
+            *preference_lines,
         ]
-    )
     return [
         {"role": "system", "content": REVISE_SYSTEM},
-        {"role": "user", "content": user},
+        {"role": "user", "content": "\n".join(sections)},
     ]
 
 
@@ -1183,6 +1252,73 @@ def _scope_label(date_text: str, slot: str) -> str:
     return REVISE_SCOPE_TEMPLATE.format(date=date_text, slot=slot)
 
 
+def _soft_hints(soft_texts: list[str]) -> dict:
+    """软偏好 → 打分提示（契约 §6.10）：清淡类加分，赶时间类按耗时减分。"""
+    texts = [str(text or "").strip() for text in soft_texts if str(text or "").strip()]
+    return {
+        "texts": texts,
+        "light": any(any(word in text for word in SOFT_LIGHT_HINTS) for text in texts),
+        "quick": any(any(word in text for word in SOFT_QUICK_HINTS) for text in texts),
+    }
+
+
+def _swap_matches(title: Any, swap_to: Any) -> bool:
+    """点名菜与菜名是否对得上（中文菜名常带做法前缀，包含匹配最稳）。"""
+    name = str(swap_to or "").strip()
+    text = str(title or "").strip()
+    if not name or not text:
+        return False
+    return name in text
+
+
+def _swap_library(swap_to: str) -> list[dict]:
+    """全库按菜名找被点名的菜（不看库存/时间，用来解释「为什么没换成」）。"""
+    if not swap_to:
+        return []
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM recipes WHERE title LIKE ?", (f"%{swap_to}%",)
+        ).fetchall()
+    finally:
+        conn.close()
+    return [_candidate_from_row(row) for row in rows]
+
+
+def _swap_failure_reason(
+    swap_to: Any, blocked: set[str], max_minutes: int
+) -> str | None:
+    """点名菜没换成时给出具体原因（固定前缀「没能换成X：」）。"""
+    name = str(swap_to or "").strip()
+    if not name:
+        return None
+    library = _swap_library(name)
+    if not library:
+        return REVISE_SWAP_MISSING_TEMPLATE.format(name=name)
+    within_limit = [
+        item
+        for item in library
+        if not max_minutes or int(item.get("minutes") or 0) <= max_minutes
+    ]
+    if not within_limit:
+        shortest = min(int(item.get("minutes") or 0) for item in library)
+        return REVISE_SWAP_MINUTES_TEMPLATE.format(
+            name=name, minutes=shortest, limit=max_minutes
+        )
+    blocked_hits = sorted(
+        {
+            _norm(ingredient.get("name"))
+            for item in within_limit
+            for ingredient in item.get("ingredients", [])
+            if _hits_blocked(_norm(ingredient.get("name")), blocked)
+        }
+    )
+    if blocked_hits and all(_recipe_blocked(item, blocked) for item in within_limit):
+        return REVISE_SWAP_BLOCKED_TEMPLATE.format(name=name, names="、".join(blocked_hits))
+    # 菜存在、时间也够，但现有食材一样都用不上（点名的菜不在本次候选池里）
+    return REVISE_SWAP_STOCK_TEMPLATE.format(name=name)
+
+
 def _pick_for_revise(
     candidates: list[dict],
     remaining: dict[str, float],
@@ -1194,14 +1330,24 @@ def _pick_for_revise(
     blocked: set[str],
     current_id: str,
     max_minutes: int,
+    soft_hints: dict | None = None,
 ) -> dict | None:
-    """挑一道替换菜谱：先排除「和原来一样」，实在没有才允许保留。"""
+    """挑一道替换菜谱：先排除「和原来一样」，实在没有才允许保留。
+
+    用户点名了某道菜时只在该菜里挑（换不到就返回 None，由调用方给出明确原因），
+    绝不偷偷换成别的菜还报「已换成」。
+    """
+    hints = soft_hints or {}
+    swap_to = str(intent.get("swap_to") or "")
+    light_bonus = bool(intent.get("light") or hints.get("light"))
 
     def evaluate(allow_same: bool, allow_empty_stock: bool) -> dict | None:
         best: dict | None = None
         best_score = float("-inf")
         for candidate in candidates:
             recipe_id = candidate["recipe_id"]
+            if swap_to and not _swap_matches(candidate.get("title"), swap_to):
+                continue
             if not allow_same and recipe_id == current_id:
                 continue
             if _recipe_blocked(candidate, blocked):
@@ -1219,12 +1365,13 @@ def _pick_for_revise(
             if score == float("-inf"):
                 if not allow_empty_stock:
                     continue
-                # 忌口/点名要求必须换，但库存已被排完：允许排一道「全缺料」的菜进购物清单
+                # 忌口要求必须换，但库存已被排完：允许排一道「全缺料」的菜进购物清单
                 score = 0.0
-            if intent.get("light"):
+            if light_bonus:
                 score += REVISE_LIGHT_BONUS * _light_score(candidate)
-            swap_to = intent.get("swap_to")
-            if swap_to and swap_to in str(candidate.get("title") or ""):
+            if hints.get("quick"):
+                score -= REVISE_QUICK_PENALTY * float(candidate.get("minutes") or 0)
+            if swap_to:
                 score += REVISE_SWAP_BONUS
             if recipe_id == current_id:
                 score -= REVISE_SAME_RECIPE_PENALTY
@@ -1232,6 +1379,11 @@ def _pick_for_revise(
                 best, best_score = candidate, score
         return best
 
+    if swap_to:
+        # 点名的菜只能用现有食材做；做不了要明说，不能拿别的菜顶替
+        return evaluate(allow_same=False, allow_empty_stock=False) or evaluate(
+            allow_same=True, allow_empty_stock=False
+        )
     return (
         evaluate(allow_same=False, allow_empty_stock=False)
         or evaluate(allow_same=True, allow_empty_stock=False)
@@ -1247,7 +1399,7 @@ def _satisfies(recipe: dict, intent: dict, blocked: set[str]) -> bool:
     if intent.get("light") and _light_score(recipe) <= 0:
         return False
     swap_to = str(intent.get("swap_to") or "")
-    if swap_to and swap_to not in str(recipe.get("title") or ""):
+    if swap_to and not _swap_matches(recipe.get("title"), swap_to):
         return False
     requested = intent.get("requested") or []
     if requested:
@@ -1269,13 +1421,18 @@ def _revise_assignments(
     intent: dict,
     blocked: set[str],
     max_minutes: int,
-) -> tuple[list[dict] | None, str | None]:
-    """按天/餐顺序重排：只有 targets 或触犯忌口的餐换菜，其余原样保留。"""
+    soft_hints: dict | None = None,
+) -> tuple[list[dict] | None, dict | None]:
+    """按天/餐顺序重排：只有 targets 或触犯忌口的餐换菜，其余原样保留。
+
+    返回 `(rows, failure)`。`rows` 每条带 `changed` 标记 + `old_meal`；未涉及的
+    餐次不扣库存、不重算（契约 §6.9 规则 1）。`failure` 里带作用域与具体原因。
+    """
     stock = snapshot["stock"]
     remaining = {name: float(row.get("qty") or 0.0) for name, row in stock.items()}
     used_count: dict[str, int] = {}
     previous_id: str | None = None
-    assignments: list[dict] = []
+    rows: list[dict] = []
 
     for day_index, day in enumerate(days, start=1):
         for meal in day.get("meals", []):
@@ -1287,12 +1444,18 @@ def _revise_assignments(
                 must_change = not _satisfies(recipe, intent, blocked)
 
             if not must_change:
-                assignments.append(
-                    {"day": day_index, "slot": meal.get("slot"), "recipe_id": recipe_id}
+                rows.append(
+                    {
+                        "day": day_index,
+                        "date": key[0],
+                        "slot": key[1],
+                        "recipe_id": recipe_id,
+                        "changed": False,
+                        "old_meal": meal,
+                    }
                 )
                 used_count[recipe_id] = used_count.get(recipe_id, 0) + 1
                 previous_id = recipe_id
-                _deduct(recipe, remaining, stock, servings)
                 continue
 
             replacement = _pick_for_revise(
@@ -1306,15 +1469,25 @@ def _revise_assignments(
                 blocked,
                 recipe_id,
                 max_minutes,
+                soft_hints,
             )
             if replacement is None:
-                return None, _scope_label(key[0], key[1])
+                return None, {
+                    "scope": _scope_label(key[0], key[1]),
+                    "reason": _swap_failure_reason(
+                        intent.get("swap_to"), blocked, max_minutes
+                    ),
+                }
 
-            assignments.append(
+            rows.append(
                 {
                     "day": day_index,
-                    "slot": meal.get("slot"),
+                    "date": key[0],
+                    "slot": key[1],
                     "recipe_id": replacement["recipe_id"],
+                    "changed": True,
+                    "old_meal": meal,
+                    "recipe": replacement,
                 }
             )
             used_count[replacement["recipe_id"]] = (
@@ -1323,11 +1496,230 @@ def _revise_assignments(
             previous_id = replacement["recipe_id"]
             _deduct(replacement, remaining, stock, servings)
 
-    return assignments, None
+    return rows, None
+
+
+def _merge_revise_shopping(
+    rows: list[dict], archived_shopping: list[dict], stock: dict[str, dict]
+) -> list[dict]:
+    """购物清单：未涉及的餐次沿用存档条目（逐字保留），只并进改动餐的新缺料。"""
+    archived: dict[str, dict] = {}
+    for entry in archived_shopping or []:
+        name = str(entry.get("name") or "").strip()
+        if name and name not in archived:
+            archived[name] = entry
+
+    kept: dict[str, dict] = {}
+    frozen_meals: dict[str, int] = {}
+    for row in rows:
+        if row["changed"]:
+            continue
+        for missing in (row.get("old_meal") or {}).get("missing", []):
+            if missing.get("optional"):
+                continue
+            name = str(missing.get("name") or "").strip()
+            if not name:
+                continue
+            frozen_meals[name] = frozen_meals.get(name, 0) + 1
+            if name in kept:
+                continue
+            base = archived.get(name)
+            if base:
+                kept[name] = dict(base)
+            else:
+                kept[name] = {
+                    "name": name,
+                    "qty": 1,
+                    "unit": "份",
+                    "reason": "之前排的菜还差这一样",
+                    "optional": False,
+                }
+
+    new_need: dict[str, dict] = {}
+    for row in rows:
+        for shortfall in row.get("_shortfalls") or []:
+            name = str(shortfall.get("name") or "").strip()
+            if not name:
+                continue
+            entry = new_need.setdefault(
+                name,
+                {
+                    "qty": 0.0,
+                    "unit": shortfall.get("unit") or "份",
+                    "meals": 0,
+                    "optional": True,
+                },
+            )
+            entry["qty"] += float(shortfall.get("qty") or 0.0)
+            entry["meals"] += 1
+            entry["optional"] = entry["optional"] and bool(shortfall.get("optional"))
+
+    for name, need in new_need.items():
+        if need["optional"]:
+            continue  # 可选调味料不进采购清单（契约 §6.8 规则 5）
+        unit = need["unit"]
+        meals = frozen_meals.get(name, 0) + need["meals"]
+        initial = float((stock.get(name) or {}).get("qty") or 0.0)
+        reason = (
+            f"{meals} 道菜需要，库存只剩 {_round_qty(initial)}{unit}"
+            if initial > EPSILON
+            else f"{meals} 道菜需要，库存没有"
+        )
+        existing = kept.get(name)
+        if existing is None:
+            kept[name] = {
+                "name": name,
+                "qty": _round_qty(need["qty"]),
+                "unit": unit,
+                "reason": reason,
+                "optional": False,
+            }
+            continue
+        # 存档条目 + 新缺料合并：数量相加，措辞按合并后的口径重写
+        existing["qty"] = _round_qty(float(existing.get("qty") or 0.0) + need["qty"])
+        existing["unit"] = existing.get("unit") or unit
+        existing["reason"] = reason
+
+    shopping: list[dict] = []
+    for entry in archived_shopping or []:
+        name = str(entry.get("name") or "").strip()
+        if name in kept:
+            shopping.append(kept.pop(name))
+    for name in sorted(kept, key=lambda key: -float(kept[key].get("qty") or 0.0)):
+        shopping.append(kept[name])
+    return shopping
+
+
+def _revise_plan(
+    rows: list[dict],
+    original_days: list[dict],
+    snapshot: dict,
+    servings: int,
+    archived_shopping: list[dict],
+) -> dict:
+    """落成新计划：未涉及餐次沿用存档的 uses/missing/citations（契约 §6.9 规则 1）。"""
+    stock = snapshot["stock"]
+    remaining = {name: float(row.get("qty") or 0.0) for name, row in stock.items()}
+    by_day: dict[int, list[dict]] = {}
+    slot_order = {slot: index for index, slot in enumerate(MEAL_SLOTS)}
+
+    for row in rows:
+        old_meal = row.get("old_meal") or {}
+        if not row["changed"]:
+            # 原样复制：一个字都不按当前库存重算，diff 才对得上
+            by_day.setdefault(row["day"], []).append(
+                json.loads(json.dumps(old_meal, ensure_ascii=False))
+            )
+            continue
+        recipe = row["recipe"]
+        uses, missing, shortfalls = _deduct(recipe, remaining, stock, servings)
+        minutes = int(recipe.get("minutes") or 0)
+        by_day.setdefault(row["day"], []).append(
+            {
+                "slot": row["slot"],
+                "recipe_id": recipe["recipe_id"],
+                "title": recipe["title"],
+                "minutes": minutes,
+                "uses": uses,
+                "missing": missing,
+                "citations": _citations(recipe),
+                "reason": _template_reason(
+                    {"uses": uses, "missing": missing, "minutes": minutes}
+                ),
+            }
+        )
+        row["_shortfalls"] = shortfalls
+
+    days: list[dict] = []
+    for index, day in enumerate(original_days, start=1):
+        meals = by_day.get(index, [])
+        meals.sort(key=lambda item: slot_order.get(str(item.get("slot")), 99))
+        days.append({"date": day["date"], "meals": meals})
+
+    return {
+        "days": days,
+        "shopping": _merge_revise_shopping(rows, archived_shopping, stock),
+        "coverage": _coverage(days, snapshot),
+    }
+
+
+def _overclaim_warnings(days: list[dict], snapshot: dict) -> list[str]:
+    """未涉及餐次保留原用量时，计划总量可能超过现有库存 → 明确提示，不静默改。"""
+    totals: dict[str, float] = {}
+    for day in days:
+        for meal in day.get("meals", []):
+            for use in meal.get("uses", []):
+                totals[use["name"]] = totals.get(use["name"], 0.0) + float(
+                    use.get("qty") or 0.0
+                )
+    warnings: list[str] = []
+    for name, total in totals.items():
+        row = snapshot["stock"].get(name) or {}
+        available = float(row.get("qty") or 0.0)
+        if total > available + EPSILON:
+            warnings.append(
+                REVISE_OVERCLAIM_TEMPLATE.format(
+                    name=name,
+                    stock=_round_qty(available),
+                    planned=_round_qty(total),
+                    unit=row.get("unit") or "",
+                )
+            )
+    return warnings
+
+
+def _frozen_expired_warning(rows: list[dict], snapshot: dict) -> str | None:
+    expired = {item["name"] for item in snapshot["expired"]}
+    hits = sorted(
+        {
+            use["name"]
+            for row in rows
+            if not row["changed"]
+            for use in (row.get("old_meal") or {}).get("uses", [])
+            if use["name"] in expired
+        }
+    )
+    if not hits:
+        return None
+    return REVISE_FROZEN_EXPIRED_TEMPLATE.format(names="、".join(hits))
+
+
+def _change_reason(
+    intent: dict, soft_hints: dict, old_meal: dict, new_recipe: dict
+) -> str:
+    """changed[].reason 必须写「实际发生了什么」，没换成的菜不许出现在这里。"""
+    parts: list[str] = []
+    if intent.get("avoid"):
+        parts.append("去掉" + "、".join(intent["avoid"]))
+    if intent.get("light"):
+        parts.append("改清淡少油")
+    requested = intent.get("requested") or []
+    if requested:
+        parts.append("加入" + "、".join(requested))
+    swap_to = str(intent.get("swap_to") or "")
+    if swap_to:
+        if _swap_matches(new_recipe.get("title"), swap_to):
+            parts.append("换成" + swap_to)
+        else:
+            parts.append("换成了「" + str(new_recipe.get("title") or "") + "」")
+    elif soft_hints.get("light") and not intent.get("light"):
+        texts = soft_hints.get("texts") or []
+        parts.append(
+            REVISE_SOFT_REASON_TEMPLATE.format(text="、".join(texts) or "清淡")
+        )
+    if old_meal.get("recipe_id") and old_meal.get("recipe_id") == new_recipe.get(
+        "recipe_id"
+    ):
+        parts.append(REVISE_USAGE_ONLY_REASON)
+    return "、".join(parts) or "按你的要求调整"
 
 
 def _diff_days(old_days: list[dict], new_days: list[dict]) -> list[dict]:
-    """前后计划逐餐对比（按 date + slot 对齐），保证 changed 与两份计划对得上。"""
+    """前后计划逐餐对比（按 date + slot 对齐），保证 changed 与两份计划对得上。
+
+    除了 recipe_id，还比对 uses / missing：未涉及的餐次用量被动过也要出现在 diff 里
+    （契约 §6.9 规则 1：diff 必须能对上）。
+    """
     old_map = {
         (str(day["date"]), str(meal.get("slot"))): meal
         for day in old_days
@@ -1344,7 +1736,14 @@ def _diff_days(old_days: list[dict], new_days: list[dict]) -> list[dict]:
         for meal in day.get("meals", []):
             key = (str(day["date"]), str(meal.get("slot")))
             previous = old_map.get(key)
-            if previous is None or previous.get("recipe_id") != meal.get("recipe_id"):
+            recipe_changed = previous is None or previous.get(
+                "recipe_id"
+            ) != meal.get("recipe_id")
+            usage_changed = previous is not None and (
+                _uses_of(previous) != _uses_of(meal)
+                or _missing_of(previous) != _missing_of(meal)
+            )
+            if recipe_changed or usage_changed:
                 changed.append(
                     {
                         "date": key[0],
@@ -1366,6 +1765,20 @@ def _diff_days(old_days: list[dict], new_days: list[dict]) -> list[dict]:
                 }
             )
     return changed
+
+
+def _uses_of(meal: dict) -> list[dict]:
+    return [
+        {"name": row.get("name"), "qty": row.get("qty"), "unit": row.get("unit")}
+        for row in meal.get("uses", [])
+    ]
+
+
+def _missing_of(meal: dict) -> list[dict]:
+    return [
+        {"name": row.get("name"), "optional": bool(row.get("optional"))}
+        for row in meal.get("missing", [])
+    ]
 
 
 def _intent_summary(intent: dict) -> str:
@@ -1434,6 +1847,11 @@ async def revise(plan_id: str, instruction: str, *, provider=None) -> dict:
         # ---- 1 understand：解析指令（LLM + 规则版交叉）----
         watch = _Stopwatch()
         vocabulary = _ingredient_vocabulary()
+        # 偏好先读：软偏好要进同一份 Prompt（契约 §6.10），硬约束在拿到库存后再解析
+        prefs = preference_store.active_preferences()
+        preference_lines = preference_store.prompt_lines(prefs)
+        soft_texts = preference_store.soft_constraints(prefs)
+        soft_hints = _soft_hints(soft_texts)
         rule_intent = instruction_parser.parse_instruction(text, vocabulary)
         intent = rule_intent
         if llm is None:
@@ -1442,7 +1860,8 @@ async def revise(plan_id: str, instruction: str, *, provider=None) -> dict:
         else:
             try:
                 data = await llm.chat_json(
-                    _revise_messages(text, day_count, vocabulary), schema=ReviseIntent
+                    _revise_messages(text, day_count, vocabulary, preference_lines),
+                    schema=ReviseIntent,
                 )
                 intent = instruction_parser.merge_intents(rule_intent, _parse_revise_intent(data))
                 trace.add(STEP_UNDERSTAND, STATE_OK, watch, f"改动意图：{_intent_summary(intent)}")
@@ -1488,7 +1907,6 @@ async def revise(plan_id: str, instruction: str, *, provider=None) -> dict:
         snapshot = _split_inventory(planned.get("items", []))
         warnings.extend(_expired_warnings(snapshot))
 
-        prefs = preference_store.active_preferences()
         warnings.extend(preference_store.warnings_for_low_confidence())
         blocked = preference_store.blocked_names(
             [item["name"] for item in snapshot["usable"]], prefs=prefs
@@ -1504,12 +1922,16 @@ async def revise(plan_id: str, instruction: str, *, provider=None) -> dict:
             blocked.discard(conflict["name"])
         blocked |= {name for name in intent.get("avoid") or [] if name}
 
-        trace.add(
-            STEP_PLAN,
-            STATE_OK,
-            watch,
-            f"可用 {len(snapshot['usable'])} 项、忌口 {len(blocked)} 项、过期 {len(snapshot['expired'])} 项",
+        plan_summary = (
+            f"可用 {len(snapshot['usable'])} 项、忌口 {len(blocked)} 项、"
+            f"过期 {len(snapshot['expired'])} 项"
         )
+        if soft_texts:
+            # 契约 §6.10：软偏好必须真的参与本次重排，trace 里要能核对
+            plan_summary += "，" + REVISE_SOFT_TRACE_TEMPLATE.format(
+                count=len(soft_texts), lines="、".join(soft_texts)
+            )
+        trace.add(STEP_PLAN, STATE_OK, watch, plan_summary)
 
         # ---- 3 allocate：检索候选（未涉及的餐直接用存档里的菜谱）----
         watch = _Stopwatch()
@@ -1547,7 +1969,7 @@ async def revise(plan_id: str, instruction: str, *, provider=None) -> dict:
         # ---- 4 compose：局部重排 ----
         watch = _Stopwatch()
         summary = _intent_summary(intent)
-        assignments, failed_scope = _revise_assignments(
+        rows, failure = _revise_assignments(
             original["days"],
             targets,
             candidates,
@@ -1557,28 +1979,43 @@ async def revise(plan_id: str, instruction: str, *, provider=None) -> dict:
             intent,
             blocked,
             max_minutes,
+            soft_hints,
         )
-        if assignments is None:
-            trace.add(STEP_COMPOSE, "empty", watch, f"{failed_scope} 没有可用替换菜谱")
+        if rows is None:
+            scope = (failure or {}).get("scope") or REVISE_WHOLE_PLAN
+            detail = (failure or {}).get("reason")
+            trace.add(STEP_COMPOSE, "empty", watch, f"{scope} 没有可用替换菜谱")
             trace.add(STEP_VERIFY, "skipped", _Stopwatch(), "没有改动，无需校验")
             warnings.append(
-                REVISE_NO_CANDIDATE_TEMPLATE.format(constraints=summary, scope=failed_scope)
+                REVISE_SWAP_SCOPE_TEMPLATE.format(scope=scope, reason=detail)
+                if detail
+                else REVISE_NO_CANDIDATE_TEMPLATE.format(constraints=summary, scope=scope)
             )
             _persist_run(run_id, STATE_DEGRADED, trace.steps)
             _persist_event(plan_id, run_id, {"state": STATE_DEGRADED, "revised": 0})
             return _revise_result(plan_id, run_id, original, warnings, [], [])
 
-        candidates_by_id = {**fixed_by_id, **{cand["recipe_id"]: cand for cand in candidates}}
-        start_date = date.fromisoformat(str(original["days"][0]["date"])[:10])
-        built = _materialize(
-            assignments, candidates_by_id, snapshot, servings, start_date, day_count
+        built = _revise_plan(
+            rows, original["days"], snapshot, servings, original["shopping"]
         )
-        trace.add(STEP_COMPOSE, STATE_OK, watch, f"局部重排 {len(targets)} 餐（其余原样保留）")
+        frozen_keys = {
+            (row["date"], row["slot"]) for row in rows if not row["changed"]
+        }
+        trace.add(
+            STEP_COMPOSE,
+            STATE_OK,
+            watch,
+            f"局部重排 {len(targets)} 餐（其余 {len(frozen_keys)} 餐原样保留）",
+        )
 
         # ---- 5 verify：改完仍须过 §6.8 五条规则 + 忌口硬约束 ----
         watch = _Stopwatch()
         coverage, problems = verify(
-            built["days"], built["shopping"], snapshot, blocked=blocked
+            built["days"],
+            built["shopping"],
+            snapshot,
+            blocked=blocked,
+            frozen_keys=frozen_keys,
         )
         if problems:
             trace.add(STEP_VERIFY, "error", watch, f"{len(problems)} 个问题，本次不落库")
@@ -1591,16 +2028,63 @@ async def revise(plan_id: str, instruction: str, *, provider=None) -> dict:
             _persist_event(plan_id, run_id, {"state": STATE_DEGRADED, "revised": 0})
             return _revise_result(plan_id, run_id, original, warnings, [], [])
 
+        # 未涉及餐次沿用存档用量 → 计划总量可能超过现库存：明确提示，不静默重算
+        warnings.extend(_overclaim_warnings(built["days"], snapshot))
+        frozen_expired = _frozen_expired_warning(rows, snapshot)
+        if frozen_expired:
+            warnings.append(frozen_expired)
+
         changed = _diff_days(original["days"], built["days"])
         if not changed:
             trace.add(STEP_VERIFY, STATE_OK, watch, "无需改动，计划保持原样")
+            if intent.get("swap_to"):
+                already = [
+                    (_scope_label(str(day["date"]), str(meal.get("slot"))), str(meal.get("title") or ""))
+                    for day in original["days"]
+                    for meal in day.get("meals", [])
+                    if (str(day["date"]), str(meal.get("slot"))) in targets
+                    and _swap_matches(meal.get("title"), intent.get("swap_to"))
+                ]
+                if already:
+                    scope, title = already[0]
+                    warnings.append(
+                        REVISE_SWAP_ALREADY_TEMPLATE.format(scope=scope, title=title)
+                    )
             warnings.append(REVISE_NO_CHANGE_TEMPLATE.format(detail=summary))
             _persist_run(run_id, STATE_DEGRADED, trace.steps)
             _persist_event(plan_id, run_id, {"state": STATE_DEGRADED, "revised": 0})
             return _revise_result(plan_id, run_id, original, warnings, [], [])
 
+        # 契约 §6.9 规则 1 的硬保证：diff 里出现没点名的餐次 → 放弃本次改动
+        row_by_key = {(row["date"], row["slot"]): row for row in rows}
+        drifted = [
+            entry
+            for entry in changed
+            if not (row_by_key.get((entry["date"], entry["slot"])) or {}).get("changed")
+        ]
+        if drifted:
+            trace.add(
+                STEP_VERIFY,
+                "error",
+                watch,
+                f"{len(drifted)} 个未点名的餐次被动到，本次不落库",
+            )
+            warnings.append(
+                REVISE_DRIFT_WARNING.format(
+                    names="、".join(
+                        _scope_label(entry["date"], entry["slot"]) for entry in drifted[:3]
+                    )
+                )
+            )
+            _persist_run(run_id, STATE_DEGRADED, trace.steps)
+            _persist_event(plan_id, run_id, {"state": STATE_DEGRADED, "revised": 0})
+            return _revise_result(plan_id, run_id, original, warnings, [], [])
+
         for entry in changed:
-            entry["reason"] = summary
+            row = row_by_key.get((entry["date"], entry["slot"])) or {}
+            entry["reason"] = _change_reason(
+                intent, soft_hints, row.get("old_meal") or {}, row.get("recipe") or {}
+            )
         trace.add(
             STEP_VERIFY,
             STATE_OK,

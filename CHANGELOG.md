@@ -5,6 +5,7 @@
 ## 未发布
 
 ### 新增
+- **交付文档**：`docs/04-技术方案.md`（10 章，含 AI 六项、业务正确性、测试实测、部署、局限）与 `docs/05-演示视频分镜.md`（7:05 分镜、逐段口播、拍前清单与分段复位）
 - **小票识别**：`POST /api/capture/receipt`，拍小票/外卖单批量入库（借自 FridgeMate、FridgeVision 的「购物后自动登记」思路）
 - **备菜流水线**：`POST /api/cook/sequence`，多道菜的并行烹饪时间轴（借自 cooking-agent 的「备菜流水线」）
 - **饮食计划**：`POST /api/plan/meals`，3 天配餐 + 覆盖统计 + 采购清单；五步 Agent（understand→plan→allocate→compose→verify）

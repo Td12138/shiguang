@@ -27,6 +27,7 @@ export function SuggestionPanel({ suggestion, loading, onRefresh }: SuggestionPa
   return (
     <Card
       tone="accent"
+      dataTour="home-suggest"
       title="AI 今日建议"
       subtitle="先吃快坏的，再考虑口味"
       actions={

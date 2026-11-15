@@ -9,6 +9,8 @@ export interface NavItem {
   title: string;
   /** 顶部标题栏副标题 */
   subtitle: string;
+  /** 新手引导的锚点（data-tour） */
+  tour?: string;
 }
 
 const HOME: NavItem = {
@@ -27,6 +29,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: '拍照入库',
     icon: 'camera',
     title: '拍照入库',
+    tour: 'nav-capture',
     subtitle: '拍冰箱照片或小票，识别结果先校对再入库',
   },
   {
@@ -34,6 +37,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: '饮食计划',
     icon: 'calendar',
     title: '3 天饮食计划',
+    tour: 'nav-plan',
     subtitle: '按到期顺序排餐，缺料合并成一张采购清单',
   },
   {

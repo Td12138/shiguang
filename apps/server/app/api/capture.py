@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/capture", tags=["capture"])
 
 SERVER_ROOT = Path(__file__).resolve().parents[2]
-UPLOAD_DIR = SERVER_ROOT / "data" / "upload"
+UPLOAD_DIR = config.UPLOAD_DIR  # 统一走配置：发布目录切换软链后图不会孤立
 FIXTURE_FILE = SERVER_ROOT / "app" / "data" / "fixtures" / "recognize.json"
 FIXTURES_DIR = SERVER_ROOT / "app" / "data" / "fixtures"
 

@@ -144,6 +144,10 @@ export default function CookPage() {
       <SuggestionSection
         suggestion={cook.suggestion}
         suggesting={cook.suggesting}
+        streamSteps={cook.streamSteps}
+        streamDelta={cook.streamDelta}
+        streamSlow={cook.streamSlow}
+        onCancelSuggest={cook.cancelSuggest}
         consuming={cook.consuming}
         doneIds={cook.doneIds}
         onSuggest={() => void handleSuggest()}

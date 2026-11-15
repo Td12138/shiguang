@@ -10,6 +10,8 @@ export interface CardProps {
   footer?: ReactNode;
   tone?: 'default' | 'soft' | 'accent';
   className?: string;
+  /** 新手引导锚点 */
+  dataTour?: string;
   children: ReactNode;
 }
 
@@ -20,13 +22,14 @@ export function Card({
   footer,
   tone = 'default',
   className,
+  dataTour,
   children,
 }: CardProps) {
   const classes = [styles.card, className].filter(Boolean).join(' ');
   const hasHeader = Boolean(title ?? subtitle ?? actions);
 
   return (
-    <section className={classes} data-tone={tone}>
+    <section className={classes} data-tone={tone} data-tour={dataTour}>
       {hasHeader ? (
         <header className={styles.header}>
           <div className={styles.heading}>

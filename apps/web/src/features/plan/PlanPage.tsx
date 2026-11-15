@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Modal } from '@/components/ui/Modal';
 import { Notice } from '@/components/ui/Notice';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { StreamProgress } from '@/components/ui/StreamProgress';
 import { useToast } from '@/components/ui/Toast';
 import { PlanBody } from './PlanBody';
 import { PlanControls } from './PlanControls';
@@ -68,8 +69,8 @@ export default function PlanPage() {
       <PlanControls
         days={plan.days}
         minutes={plan.minutes}
-        loading={plan.loading}
-        canGenerate={plan.inventory.length > 0}
+        loading={plan.loading || plan.streaming}
+        canGenerate={plan.inventory.length > 0 && !plan.streaming}
         onDays={plan.setDays}
         onMinutes={plan.setMinutes}
         onGenerate={() => void plan.generate()}
@@ -98,7 +99,17 @@ export default function PlanPage() {
         </Notice>
       ) : null}
 
-      {plan.loading ? (
+      {plan.streaming ? (
+        <Card title="正在生成计划" subtitle="步骤会逐条点亮；取消后不留半成品">
+          <StreamProgress
+            steps={plan.streamSteps}
+            delta={plan.streamDelta}
+            slow={plan.streamSlow}
+            onCancel={plan.cancelGenerate}
+            cancelLabel="取消生成"
+          />
+        </Card>
+      ) : plan.loading ? (
         <div className={styles.skeletonGrid}>
           <Skeleton height="180px" radius="var(--radius-lg)" />
           <Skeleton height="180px" radius="var(--radius-lg)" />

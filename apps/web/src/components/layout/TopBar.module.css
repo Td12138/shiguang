@@ -32,8 +32,14 @@
   color: var(--color-text);
 }
 
-.date {
+.meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
   flex-shrink: 0;
+}
+
+.date {
   font-size: var(--fs-2);
   color: var(--color-text-muted);
 }
@@ -48,6 +54,11 @@
 
   .title {
     font-size: var(--fs-4);
+  }
+
+  .meta {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .date {

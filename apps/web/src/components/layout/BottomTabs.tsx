@@ -13,6 +13,7 @@ export function BottomTabs() {
             <NavLink
               to={item.path}
               end={item.path === '/'}
+              data-tour={item.tour}
               className={({ isActive }) =>
                 [styles.tab, isActive ? styles.active : ''].filter(Boolean).join(' ')
               }

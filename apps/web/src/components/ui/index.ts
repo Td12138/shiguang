@@ -17,5 +17,6 @@ export { Notice, type NoticeProps, type NoticeTone } from './Notice';
 export { RecipeCard, type RecipeCardProps } from './RecipeCard';
 export { Segmented, type SegmentedProps } from './Segmented';
 export { Skeleton, type SkeletonProps } from './Skeleton';
+export { StreamProgress, type StreamProgressProps } from './StreamProgress';
 export { StaleBadge, type StaleBadgeProps } from './StaleBadge';
 export { ToastProvider, useToast, type ToastAction, type ToastApi, type ToastOptions, type ToastTone } from './Toast';

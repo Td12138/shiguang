@@ -10,7 +10,11 @@ export interface UrgentStripProps {
 /** 首页第一屏：今天必须处理。三级色条 + 剩余天数大数字，横向排列 */
 export function UrgentStrip({ items }: UrgentStripProps) {
   return (
-    <section className={styles.section} aria-labelledby="urgent-title">
+    <section
+      className={styles.section}
+      aria-labelledby="urgent-title"
+      data-tour="home-urgent"
+    >
       <header className={styles.head}>
         <div className={styles.heading}>
           <h2 id="urgent-title" className={styles.title}>

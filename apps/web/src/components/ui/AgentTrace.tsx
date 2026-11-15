@@ -52,10 +52,17 @@ export interface AgentTraceProps {
   run: AgentRun | null;
   loading?: boolean;
   error?: string | null;
+  /** 流式进度里不需要展示 run id */
+  showRunId?: boolean;
 }
 
 /** Agent 步骤时间线：让「规划 → 调工具 → 自检」的过程可回放（契约 §9） */
-export function AgentTrace({ run, loading = false, error = null }: AgentTraceProps) {
+export function AgentTrace({
+  run,
+  loading = false,
+  error = null,
+  showRunId = true,
+}: AgentTraceProps) {
   if (loading) {
     return (
       <div className={styles.loading}>
@@ -79,7 +86,7 @@ export function AgentTrace({ run, loading = false, error = null }: AgentTracePro
   return (
     <div className={styles.wrap}>
       <div className={styles.meta}>
-        <span className={styles.runId}>run · {run.id}</span>
+        {showRunId ? <span className={styles.runId}>run · {run.id}</span> : <span />}
         <span className={styles.state} data-state={run.state}>
           {RUN_STATE_TEXT[run.state] ?? run.state}
         </span>

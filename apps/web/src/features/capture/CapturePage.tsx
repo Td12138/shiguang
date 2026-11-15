@@ -50,6 +50,7 @@ export default function CapturePage() {
             options={MODE_OPTIONS}
             value={mode}
             onChange={changeMode}
+            tour={{ reconcile: 'capture-reconcile' }}
           />
           <p className={styles.modeNote}>{MODE_NOTE[mode]}</p>
         </div>

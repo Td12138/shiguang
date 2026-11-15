@@ -527,7 +527,11 @@ def verify(
     """
     problems: list[str] = []
     stock = snapshot["stock"]
-    expired_names = {item["name"] for item in snapshot["expired"]}
+    expired_names = {
+        item["name"] for item in snapshot["expired"]
+    } - {
+        item["name"] for item in snapshot["usable"]
+    }  # 同名食材有新鲜批次时，不能因为旧批次过期就判定计划用了过期食材
     known_recipes = _recipe_ids()
     totals: dict[str, float] = {}
 

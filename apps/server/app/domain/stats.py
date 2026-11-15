@@ -20,8 +20,8 @@ from app.db.conn import get_conn
 logger = logging.getLogger(__name__)
 
 # 等效换算常量（公开因子表，避免魔法数字）
-CARBON_KG_PER_CAR_KM = 0.15
-CARBON_KG_PER_TREE_DAY = 0.06
+CARBON_KG_PER_CAR_KM = 0.137  # 小型汽油车百公里约 13.7 kg CO2e
+CARBON_KG_PER_TREE_DAY = 16 / 365  # 一棵树年吸收约 16 kg CO2e
 DEFAULT_RANGE = "30d"
 DEFAULT_RANGE_DAYS = 30
 MAX_RANGE_DAYS = 365

@@ -1,58 +1,25 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   describeApiError,
+  isTransportError,
   loadInventory as fetchInventory,
   loadPlan,
   reviseMealPlan,
+  streamPlan,
 } from '@/lib/api';
-import type { InventoryItem, LearnedPreference, MealPlan, PlanChange } from '@/lib/api';
+import type { ApiError, InventoryItem, MealPlan, PlanRequest } from '@/lib/api';
+import { PLAN_STEP_NAMES } from '@/lib/stream';
+import type { DaysValue, MinutesValue, PlanState, ReviseOutcome } from './planTypes';
+import { useStreamRun } from '@/features/stream/useStreamRun';
 import type { PlanDiffState } from './PlanDiff';
 
-/** 契约 §6.8 默认 3 天；2/3/5 覆盖「今晚」「这一周」两类场景 */
-export const DAY_OPTIONS = [
-  { value: '2', label: '2 天' },
-  { value: '3', label: '3 天' },
-  { value: '5', label: '5 天' },
-] as const;
-
-export const MINUTES_OPTIONS = [
-  { value: '20', label: '20 分钟' },
-  { value: '30', label: '30 分钟' },
-  { value: '45', label: '45 分钟' },
-] as const;
-
-export type DaysValue = (typeof DAY_OPTIONS)[number]['value'];
-export type MinutesValue = (typeof MINUTES_OPTIONS)[number]['value'];
+export { DAY_OPTIONS, MINUTES_OPTIONS } from './planTypes';
+export type { DaysValue, MinutesValue, PlanState, ReviseOutcome } from './planTypes';
 
 const DEFAULT_DAYS: DaysValue = '3';
 const DEFAULT_MINUTES: MinutesValue = '30';
 /** 暂不支持多人：单人或两人份都按 1 人份配餐，页面上写明 */
 const SERVINGS = 1;
-
-export interface ReviseOutcome {
-  ok: boolean;
-  changed: PlanChange[];
-  learned: LearnedPreference[];
-  message?: string;
-}
-
-export interface PlanState {
-  days: DaysValue;
-  minutes: MinutesValue;
-  plan: MealPlan | null;
-  inventory: InventoryItem[];
-  loading: boolean;
-  demo: boolean;
-  error: string | null;
-  revising: boolean;
-  reviseError: string | null;
-  diff: PlanDiffState | null;
-  setDays: (value: DaysValue) => void;
-  setMinutes: (value: MinutesValue) => void;
-  generate: () => Promise<void>;
-  revise: (instruction: string) => Promise<ReviseOutcome>;
-  dismissDiff: () => void;
-}
 
 export function usePlan(): PlanState {
   const [days, setDays] = useState<DaysValue>(DEFAULT_DAYS);
@@ -65,6 +32,7 @@ export function usePlan(): PlanState {
   const [revising, setRevising] = useState(false);
   const [reviseError, setReviseError] = useState<string | null>(null);
   const [diff, setDiff] = useState<PlanDiffState | null>(null);
+  const stream = useStreamRun();
 
   const loadInventory = useCallback(async (): Promise<void> => {
     const result = await fetchInventory('active');
@@ -79,25 +47,52 @@ export function usePlan(): PlanState {
     })();
   }, [loadInventory]);
 
-  const generate = useCallback(async (): Promise<void> => {
-    setLoading(true);
+  /** 流式失败时退回非流式：后端不通则 loadPlan 会回样例并标 demo */
+  const recoverFromStreamError = useCallback(
+    async (err: ApiError, body: PlanRequest): Promise<void> => {
+      if (!isTransportError(err)) {
+        setError(describeApiError(err));
+        return;
+      }
+      try {
+        const fallback = await loadPlan(body);
+        setPlan(fallback.data);
+        setDemo((previous) => previous || fallback.demo);
+      } catch (fallbackErr) {
+        setError(describeApiError(fallbackErr));
+      }
+    },
+    [],
+  );
+
+  const generate = useCallback((): void => {
+    const body: PlanRequest = {
+      days: Number(days),
+      servings: SERVINGS,
+      max_minutes: Number(minutes),
+    };
     setError(null);
     setDiff(null);
-    try {
-      const result = await loadPlan({
-        days: Number(days),
-        servings: SERVINGS,
-        max_minutes: Number(minutes),
-      });
-      setPlan(result.data);
-      setDemo((previous) => previous || result.demo);
-      await loadInventory();
-    } catch (err) {
-      setError(describeApiError(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [days, minutes, loadInventory]);
+    setPlan(null);
+    stream.start<MealPlan>({
+      stepNames: PLAN_STEP_NAMES,
+      run: (handlers, signal) => streamPlan(body, handlers, signal),
+      onResult: (payload) => {
+        setPlan(payload);
+        void loadInventory();
+      },
+      onError: (err) => {
+        void recoverFromStreamError(err, body);
+      },
+    });
+  }, [days, minutes, loadInventory, stream, recoverFromStreamError]);
+
+  /** 取消后回到「未生成」状态，不留半成品 */
+  const cancelGenerate = useCallback((): void => {
+    stream.cancel();
+    setPlan(null);
+    setError(null);
+  }, [stream]);
 
   /** §6.9：只改指令涉及的餐次；失败保留原计划，不做假改动 */
   const revise = useCallback(
@@ -144,6 +139,11 @@ export function usePlan(): PlanState {
     loading,
     demo,
     error,
+    streaming: stream.running,
+    streamSteps: stream.steps,
+    streamDelta: stream.delta,
+    streamSlow: stream.slow,
+    cancelGenerate,
     revising,
     reviseError,
     diff,

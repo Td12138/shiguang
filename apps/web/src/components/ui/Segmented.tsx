@@ -12,6 +12,8 @@ export interface SegmentedProps<T extends string> {
   value: T;
   onChange: (value: T) => void;
   disabled?: boolean;
+  /** 给个别选项挂 data-tour（新手引导用） */
+  tour?: Partial<Record<T, string>>;
 }
 
 /** 分段选择器：2/3/5 天、时长上限这类少量互斥选项 */
@@ -21,6 +23,7 @@ export function Segmented<T extends string>({
   value,
   onChange,
   disabled = false,
+  tour,
 }: SegmentedProps<T>) {
   return (
     <div className={styles.group} role="group" aria-label={ariaLabel} data-disabled={disabled || undefined}>
@@ -31,6 +34,7 @@ export function Segmented<T extends string>({
           className={styles.item}
           aria-pressed={option.value === value}
           data-active={option.value === value || undefined}
+          data-tour={tour?.[option.value]}
           disabled={disabled}
           onClick={() => onChange(option.value)}
         >

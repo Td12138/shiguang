@@ -41,3 +41,8 @@
     justify-content: space-between;
   }
 }
+
+.streaming {
+  display: grid;
+  gap: var(--space-2);
+}

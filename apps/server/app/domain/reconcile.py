@@ -299,6 +299,7 @@ def build_diff(
             continue
 
         remaining = rec["qty"]
+        multi_batch = len(rows) > 1
         for row in _sort_by_expiry(rows):
             matched_ids.add(str(row.get("id")))
             stock_qty = max(0.0, _as_float(row.get("qty"), 0.0))
@@ -307,7 +308,17 @@ def build_diff(
             if covered >= stock_qty - QTY_EPSILON:
                 continue  # 数量对得上，keep
             if covered <= QTY_EPSILON:
-                missing.append(_missing_entry(row))
+                if multi_batch:
+                    # 同名多批：照片分不清是哪一批，不能武断判「不见了」
+                    suspect.append(
+                        {
+                            "inventory_id": row.get("id"),
+                            "name": row.get("name"),
+                            "reason": "同名食材有多批，照片无法判断少的是哪一批，请手动确认",
+                        }
+                    )
+                else:
+                    missing.append(_missing_entry(row))
                 continue
             reduced.append(
                 {

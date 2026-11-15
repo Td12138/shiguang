@@ -1,4 +1,4 @@
-import type { RecipeRecommendation, SuggestResponse } from '@/lib/api';
+import type { AgentStep, RecipeRecommendation, SuggestResponse } from '@/lib/api';
 import { AgentTracePanel } from '@/components/ui/AgentTracePanel';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -6,11 +6,17 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Notice } from '@/components/ui/Notice';
 import { RecipeCard } from '@/components/ui/RecipeCard';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { StreamProgress } from '@/components/ui/StreamProgress';
 import styles from './SuggestionSection.module.css';
 
 export interface SuggestionSectionProps {
   suggestion: SuggestResponse | null;
   suggesting: boolean;
+  /** 流式步骤（未到的补灰） */
+  streamSteps: AgentStep[];
+  streamDelta: string;
+  streamSlow: boolean;
+  onCancelSuggest: () => void;
   consuming: boolean;
   doneIds: string[];
   onSuggest: () => void;
@@ -27,6 +33,10 @@ export interface SuggestionSectionProps {
 export function SuggestionSection({
   suggestion,
   suggesting,
+  streamSteps,
+  streamDelta,
+  streamSlow,
+  onCancelSuggest,
   consuming,
   doneIds,
   onSuggest,
@@ -61,9 +71,18 @@ export function SuggestionSection({
       }
     >
       {suggesting ? (
-        <div className={styles.skeletons}>
-          <Skeleton height="104px" radius="var(--radius-md)" />
-          <Skeleton height="104px" radius="var(--radius-md)" />
+        <div className={styles.streaming}>
+          <StreamProgress
+            steps={streamSteps}
+            delta={streamDelta}
+            slow={streamSlow}
+            onCancel={onCancelSuggest}
+            cancelLabel="取消生成"
+          />
+          <div className={styles.skeletons}>
+            <Skeleton height="104px" radius="var(--radius-md)" />
+            <Skeleton height="104px" radius="var(--radius-md)" />
+          </div>
         </div>
       ) : suggestion === null ? (
         <EmptyState

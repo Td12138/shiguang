@@ -1,6 +1,7 @@
 import { lazy } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AppLayout } from './components/layout/AppLayout';
+import { TourProvider } from './components/tour/TourProvider';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { ToastProvider } from './components/ui/Toast';
 
@@ -17,17 +18,19 @@ export default function App() {
     <ErrorBoundary title="应用没能启动">
       <ToastProvider>
         <BrowserRouter>
-          <Routes>
-            <Route element={<AppLayout />}>
-              <Route path="/" element={<DashboardPage />} />
-              <Route path="/capture" element={<CapturePage />} />
-              <Route path="/plan" element={<PlanPage />} />
-              <Route path="/cook" element={<CookPage />} />
-              <Route path="/stats" element={<StatsPage />} />
-              <Route path="/report" element={<ReportPage />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Route>
-          </Routes>
+          <TourProvider>
+            <Routes>
+              <Route element={<AppLayout />}>
+                <Route path="/" element={<DashboardPage />} />
+                <Route path="/capture" element={<CapturePage />} />
+                <Route path="/plan" element={<PlanPage />} />
+                <Route path="/cook" element={<CookPage />} />
+                <Route path="/stats" element={<StatsPage />} />
+                <Route path="/report" element={<ReportPage />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Route>
+            </Routes>
+          </TourProvider>
         </BrowserRouter>
       </ToastProvider>
     </ErrorBoundary>

@@ -1,0 +1,92 @@
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+}
+
+/* 挡住页面交互，避免引导时误点 */
+.blocker {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+}
+
+/* 用超大 box-shadow 做出「挖洞」效果，比多块遮罩简单 */
+.highlight {
+  position: fixed;
+  z-index: 2;
+  border: 2px solid var(--color-accent);
+  border-radius: 14px;
+  box-shadow: 0 0 0 9999px rgb(17 17 17 / 58%);
+  pointer-events: none;
+  transition:
+    top 180ms ease,
+    left 180ms ease,
+    width 180ms ease,
+    height 180ms ease;
+}
+
+.bubble {
+  position: fixed;
+  z-index: 3;
+  display: grid;
+  gap: 8px;
+  padding: var(--space-2);
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  animation: bubble-in 180ms ease both;
+}
+
+.step {
+  color: var(--color-text-faint);
+  font-size: var(--fs-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.title {
+  font-size: var(--fs-3);
+  color: var(--color-text);
+}
+
+.body {
+  color: var(--color-text-muted);
+  font-size: var(--fs-2);
+  line-height: var(--lh-normal);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+  margin-top: 2px;
+}
+
+.nav {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.hint {
+  color: var(--color-text-faint);
+  font-size: 11px;
+  text-align: right;
+}
+
+@keyframes bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (max-width: 767px) {
+  .bubble {
+    gap: 6px;
+  }
+
+  .hint {
+    display: none;
+  }
+}

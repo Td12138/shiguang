@@ -83,7 +83,7 @@ def test_stats_summary(client, add_item):
     data = response.json()
     assert data["saved_grams"] == pytest.approx(1000.0)
     assert data["carbon_saved_kg"] == pytest.approx(2.5)
-    assert data["equivalents"]["car_km"] == 17  # 2.5/0.15 = 16.67
+    assert data["equivalents"]["car_km"] == 18  # 2.5/0.137 = 18.2
     assert data["trend"][-1]["saved"] == pytest.approx(1000.0)
 
 

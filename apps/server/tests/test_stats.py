@@ -31,8 +31,8 @@ def test_summary_formulas(app_db, add_item):
     assert data["waste_rate"] == pytest.approx(0.4, abs=1e-3)
     assert data["carbon_saved_kg"] == pytest.approx(3.0)  # 1.2kg × 2.5
     assert data["money_saved"] == pytest.approx(12.0)  # 1.2kg × 10
-    assert data["equivalents"]["car_km"] == 20  # 3.0 / 0.15
-    assert data["equivalents"]["trees_days"] == 50  # 3.0 / 0.06
+    assert data["equivalents"]["car_km"] == 22  # 3.0 / 0.137 = 21.9
+    assert data["equivalents"]["trees_days"] == 68  # 3.0 / (16/365) = 68.4
 
     assert len(data["trend"]) == 30
     today_row = data["trend"][-1]

@@ -2,11 +2,24 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   consumeInventory,
   describeApiError,
+  isTransportError,
   loadInventory as fetchInventory,
   loadSuggestion,
+  streamSuggest,
 } from '@/lib/api';
-import type { InventoryItem, RecipeRecommendation, SuggestResponse } from '@/lib/api';
+import type {
+  ApiError,
+  InventoryItem,
+  RecipeRecommendation,
+  SuggestRequest,
+  SuggestResponse,
+} from '@/lib/api';
+import { SUGGEST_STEP_NAMES } from '@/lib/stream';
+import { useStreamRun } from '@/features/stream/useStreamRun';
 import type { ConsumeLine } from './consume';
+import type { ConsumeOutcome, CookState } from './cookTypes';
+
+export type { ConsumeOutcome, CookState } from './cookTypes';
 
 /** 建议条数上限（契约 §6.4 默认 3） */
 const LIMIT = 3;
@@ -15,37 +28,13 @@ const MAX_MINUTES = 30;
 /** 「临期」口径：3 天内到期（契约 §6.3 soon/urgent/expired） */
 const URGENT_DAYS = 3;
 
-export interface ConsumeOutcome {
-  ok: boolean;
-  consumed: string[];
-  message?: string;
-}
-
-export interface CookState {
-  inventory: InventoryItem[];
-  loading: boolean;
-  demo: boolean;
-  selected: string[];
-  suggestion: SuggestResponse | null;
-  suggesting: boolean;
-  error: string | null;
-  consuming: boolean;
-  doneIds: string[];
-  toggle: (id: string) => void;
-  selectExpiring: () => void;
-  clearSelection: () => void;
-  suggest: () => Promise<void>;
-  consume: (recipe: RecipeRecommendation, chosen: ConsumeLine[]) => Promise<ConsumeOutcome>;
-  reset: () => void;
-}
-
 export function useCook(): CookState {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [demo, setDemo] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [suggestion, setSuggestion] = useState<SuggestResponse | null>(null);
-  const [suggesting, setSuggesting] = useState(false);
+  const stream = useStreamRun();
   const [error, setError] = useState<string | null>(null);
   const [consuming, setConsuming] = useState(false);
   const [doneIds, setDoneIds] = useState<string[]>([]);
@@ -94,19 +83,46 @@ export function useCook(): CookState {
     setSelected([]);
   }, []);
 
+  /** 流式失败时退回非流式：后端不通则 loadSuggestion 会回样例并标 demo */
+  const recoverFromStreamError = useCallback(
+    async (err: ApiError, body: SuggestRequest): Promise<void> => {
+      if (!isTransportError(err)) {
+        setError(describeApiError(err));
+        return;
+      }
+      try {
+        const fallback = await loadSuggestion(
+          body.use,
+          body.limit ?? LIMIT,
+          body.max_minutes ?? MAX_MINUTES,
+        );
+        setSuggestion(fallback.data);
+        setDemo((previous) => previous || fallback.demo);
+      } catch (fallbackErr) {
+        setError(describeApiError(fallbackErr));
+      }
+    },
+    [],
+  );
+
   const suggest = useCallback(async (): Promise<void> => {
-    setSuggesting(true);
+    const body: SuggestRequest = { use: selected, limit: LIMIT, max_minutes: MAX_MINUTES };
     setError(null);
-    try {
-      const result = await loadSuggestion(selected, LIMIT, MAX_MINUTES);
-      setSuggestion(result.data);
-      setDemo((previous) => previous || result.demo);
-    } catch (err) {
-      setError(describeApiError(err));
-    } finally {
-      setSuggesting(false);
-    }
-  }, [selected]);
+    setSuggestion(null);
+    stream.start<SuggestResponse>({
+      stepNames: SUGGEST_STEP_NAMES,
+      run: (handlers, signal) => streamSuggest(body, handlers, signal),
+      onResult: setSuggestion,
+      onError: (err) => {
+        void recoverFromStreamError(err, body);
+      },
+    });
+  }, [selected, stream, recoverFromStreamError]);
+
+  const cancelSuggest = useCallback((): void => {
+    stream.cancel();
+    setSuggestion(null);
+  }, [stream]);
 
   const consume = useCallback(
     async (recipe: RecipeRecommendation, chosen: ConsumeLine[]): Promise<ConsumeOutcome> => {
@@ -144,11 +160,12 @@ export function useCook(): CookState {
   );
 
   const reset = useCallback((): void => {
+    stream.cancel();
     setSuggestion(null);
     setDoneIds([]);
     setError(null);
     void refresh(false);
-  }, [refresh]);
+  }, [refresh, stream]);
 
   return {
     inventory,
@@ -156,7 +173,11 @@ export function useCook(): CookState {
     demo,
     selected,
     suggestion,
-    suggesting,
+    suggesting: stream.running,
+    streamSteps: stream.steps,
+    streamDelta: stream.delta,
+    streamSlow: stream.slow,
+    cancelSuggest,
     error,
     consuming,
     doneIds,

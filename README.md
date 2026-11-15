@@ -75,7 +75,7 @@ python scripts/seed_demo.py --reset
 
 ```powershell
 cd apps/server
-python -m pytest -q                # 90 项
+python -m pytest -q                # 110 项
 ```
 
 **真实模型自测**（会调用一次视觉接口）：

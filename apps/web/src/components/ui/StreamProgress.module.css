@@ -1,0 +1,23 @@
+.wrap {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.delta {
+  padding: var(--space-1) var(--space-2);
+  border-left: 3px solid var(--color-primary);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  font-size: var(--fs-2);
+}
+
+.slow {
+  color: #8a5a12;
+  font-size: var(--fs-1);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-1);
+}

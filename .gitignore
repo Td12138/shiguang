@@ -21,3 +21,12 @@ apps/server/data/
 .DS_Store
 
 samples/
+
+# LaTeX 中间产物
+docs/tech-report/*.aux
+docs/tech-report/*.log
+docs/tech-report/*.out
+docs/tech-report/*.toc
+docs/tech-report/*.fls
+docs/tech-report/*.fdb_latexmk
+docs/tech-report/*.xdv

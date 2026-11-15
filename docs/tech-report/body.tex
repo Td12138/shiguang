@@ -1,0 +1,387 @@
+\begin{quote}
+技术文档 PDF ≤30 页。函数名、接口、数值取自当前代码与实测记录；未实现项在 §9 明说。
+基线：\passthrough{\lstinline!apps/server!}（FastAPI + SQLite）+ \passthrough{\lstinline!apps/web!}（React 18 + TS + Vite），110 项 pytest 全绿（前端无自动化测试）。
+\end{quote}
+
+\section{一页摘要}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.22\textwidth}>{\raggedright\arraybackslash}p{0.7\textwidth}@{}}
+\toprule\noalign{}
+项 & 内容 \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+问题 & 食材过期丢弃。菜谱 App 只管「想吃什么」，没人管「冰箱里什么快坏了」；浪费没有反馈 \\
+方案 & 先管时效再谈菜谱：拍冰箱 → 校对入库 → 临期倒计时 → 配餐消耗 → 浪费/碳账。中途可拍小票批量入库、拍第二张对账、一句话改计划 \\
+形态 & 6 个路由的单页 Web，主入口是拍照与卡片；唯一对话入口是计划页底部「改计划」框 \\
+关键技术 & Provider 抽象 + JSON 模式 + pydantic + 重试 1 次 + 规则降级；双五步状态机轨迹落库；2-gram + FTS5 BM25 + 可选向量 RRF + 引用回链；三入口视觉识别与三形态归一；AI 不直接改数据；5 工具 + MCP stdio \\
+规模 & 22 个接口操作（20 条路径，含 2 个 SSE 流式）；12 实体表 + 1 张 FTS5 表；食材 69 / 菜谱 30 / 技巧 20 段 / 别名 49；前端 6 页 + 21 个基础组件；后端 110 项测试 \\
+结果 & 真实 \passthrough{\lstinline!glm-4v-flash!}：4 项 / 4.98 s。mock 复跑：计划 80--130 ms（6 餐、用掉 5 项、临期 2 项）、改计划 180--300 ms（4 处）、对账 4 不见/3 新增/1 待确认、30 天浪费率 16.3\%、首屏 66.20 KB gzip \\
+我的判断 & 技术价值不在「调通模型」，在\textbf{把不确定性做成可校对流程}：识别必校对、结论必带引用、失败必降级且可见、改数据必留痕。代价多一步确认，收益是误识别不污染碳账 \\
+\end{longtable}
+}
+
+\section{需求与场景}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.14\textwidth}>{\raggedright\arraybackslash}p{0.28\textwidth}>{\raggedright\arraybackslash}p{0.5\textwidth}@{}}
+\toprule\noalign{}
+场景 & 触发与动作 & 系统要给出 \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+买完菜 / 下班前 & 拍冰箱、拍小票；看首页倒计时 & 清单 + 到期日 + 置信度；临期排序 + 立刻能做的菜 + 缺料 \\
+周末备餐 / 不合口味 & 生成 3 天计划；一句话改计划 & 哪天哪餐、用掉什么、缺什么；只改点名餐次 + diff + 原因 + 记住偏好 \\
+隔几天核对 / 月底复盘 & 再拍一张对账；打开浪费账本 & 不见/变少/新增/看不清，默认全保留；浪费率、克数、碳、金额、趋势 \\
+\end{longtable}
+}
+
+目标用户：独居学生、二人小家庭、合租青年（做饭频率低、一次买几天、不记账）。现有方案为什么不够：菜谱 App 不知道你冰箱里有什么，推荐可能全缺料；备忘录要手输、不算到期、不算账；记账 App 只管买不管扔；通用聊天助手结论无出处、无法落库。明确不做：账号、多用户、App、微调、图像生成、营养处方、扫码、常驻摄像头。
+
+\section{总体架构}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.14\textwidth}>{\raggedright\arraybackslash}p{0.17\textwidth}>{\raggedright\arraybackslash}p{0.41\textwidth}>{\raggedright\arraybackslash}p{0.2\textwidth}@{}}
+\toprule\noalign{}
+层 & 目录 & 职责 & 红线 \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+表现层 & \passthrough{\lstinline!apps/web/src!} & 6 页、21 个基础组件、设计令牌、错误态 & 不写业务规则 \\
+装配 + 接口 & \passthrough{\lstinline!main.py!}、\passthrough{\lstinline!api/!} & 中间件、挂路由、Pydantic、状态码、统一错误体、静态托管 & 只 import，不写 SQL \\
+领域 + 检索 & \passthrough{\lstinline!domain/!}、\passthrough{\lstinline!rag/!} & 计量、状态机、对账、偏好、账本；2-gram、索引、混合检索、引用 & 不依赖 FastAPI \\
+基础设施 & \passthrough{\lstinline!core/!}、\passthrough{\lstinline!db/!}、\passthrough{\lstinline!mcp/!} & Provider、工具表、SSE、安全、连接迁移；stdio JSON-RPC & 不含业务名词 \\
+\end{longtable}
+}
+
+请求路径：浏览器 → \passthrough{\lstinline!SecurityMiddleware!}（Basic Auth → 限流 → 8 MB 上限）→ \passthrough{\lstinline!api/!}（Pydantic）→ \passthrough{\lstinline!domain/!}（调 \passthrough{\lstinline!core/provider!}、\passthrough{\lstinline!core/tools!}、\passthrough{\lstinline!rag/!}）→ \passthrough{\lstinline!db/conn.py!}（WAL、单事务）→ JSON / SSE。
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.14\textwidth}>{\raggedright\arraybackslash}p{0.28\textwidth}>{\raggedright\arraybackslash}p{0.5\textwidth}@{}}
+\toprule\noalign{}
+决策 & 为什么 & 不这么做会怎样 \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+单 uvicorn worker & 单用户写并发低；1.6 GB 内存只够一个进程 + 模型调用 & 多 worker 抢 SQLite 写锁，限流桶与 provider 单例要改 Redis \\
+SQLite（标准库，不 ORM） & 备份=拷文件；FTS5 自带检索；零外部服务 & 多一个 PG 进程、连接池、迁移，现场多一个故障点 \\
+WAL + \passthrough{\lstinline!busy\_timeout=30s!} + \passthrough{\lstinline!BEGIN IMMEDIATE!} & 读写不互斥；批量对账一次拿写锁 & 默认 journal 下批量写易超时 \\
+托管 \passthrough{\lstinline!dist!} + \passthrough{\lstinline!current!} 软链 + \passthrough{\lstinline!shared/upload!} & 少一个 nginx；回滚只改链接；上传目录外挂，切软链后旧图不丢 & 覆盖式部署无法回滚，切软链后旧图 404 \\
+\end{longtable}
+}
+
+\section{AI 能力设计}
+
+\begin{quote}
+对应评分六项：大模型集成 8 / Agent 8 / RAG 6 / 多模态 5 / AI 安全 4 / 工具 4。
+\end{quote}
+
+\subsection{大模型集成}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.22\textwidth}>{\raggedright\arraybackslash}p{0.7\textwidth}@{}}
+\toprule\noalign{}
+机制 & 实现 \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Provider 协议 & \passthrough{\lstinline!LLMProvider!}：\passthrough{\lstinline!chat\_json!}/\passthrough{\lstinline!chat\_text!}/\passthrough{\lstinline!chat\_vision!}/\passthrough{\lstinline!stream\_chat!}；5 预设 \passthrough{\lstinline!mock!}/\passthrough{\lstinline!zhipu!}/\passthrough{\lstinline!dashscope!}/\passthrough{\lstinline!openai!}/\passthrough{\lstinline!local!}，全走 OpenAI 兼容 \passthrough{\lstinline!/chat/completions!} \\
+结构化输出 & \passthrough{\lstinline!json\_object!} → \passthrough{\lstinline!extract\_json!}（容忍围栏、寒暄、裸数组）→ pydantic \passthrough{\lstinline!model\_validate!}；失败重试 1 次，再失败 \passthrough{\lstinline!llm\_invalid\_json!}(502) \\
+视觉归一 & 实测裸数组 / \passthrough{\lstinline!\{items\}!} / \passthrough{\lstinline!\{"items":[\{"items":[…]\}]\}!} 套娃 → \passthrough{\lstinline!\_normalize\_vision\_payload!} 递归拍平，保留 \passthrough{\lstinline!purchased\_at!}/\passthrough{\lstinline!total\_price!} \\
+兜底 & 上游不支持 \passthrough{\lstinline!response\_format!} 去掉重发一次；\passthrough{\lstinline!ConnectError!} 重试 1 次（0.8 s，治 Windows TLS 握手）；文本 60 s / 视觉 90 s；\passthrough{\lstinline!SSL\_VERIFY!} 取 \passthrough{\lstinline!os!}/\passthrough{\lstinline!strict!}/\passthrough{\lstinline!off!}；非 local 且 key 空 → 启动回退 mock 并告警 \\
+\end{longtable}
+}
+
+Prompt 版本化：Prompt 是模块顶部常量（\passthrough{\lstinline!VISION\_PROMPT!}、\passthrough{\lstinline!RECEIPT\_PROMPT!}、\passthrough{\lstinline!RECONCILE\_PROMPT!}、\passthrough{\lstinline!UNDERSTAND\_SYSTEM!}、\passthrough{\lstinline!COMPOSE\_SYSTEM!}、\passthrough{\lstinline!REVISE\_SYSTEM!}、\passthrough{\lstinline!LEARN\_SYSTEM!}、\passthrough{\lstinline!COOK\_SYSTEM!}、\passthrough{\lstinline!report.SYSTEM\_PROMPT!}），靠 Git 与 \passthrough{\lstinline!CHANGELOG.md!} 追溯；\textbf{没有独立 \passthrough{\lstinline!prompts/!} 目录与版本号}，\passthrough{\lstinline!PLAN.md!} 这条承诺未落地。
+
+为什么：模型输出是不可信输入，全部走「提取→校验→重试→降级」一条管道。不这么做：套娃返回直接 500、\passthrough{\lstinline!confidence:92!} 撑爆置信度条、上游抖一下整天演示全挂。
+
+\subsection{Agent 工作流}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.14\textwidth}>{\raggedright\arraybackslash}p{0.17\textwidth}>{\raggedright\arraybackslash}p{0.41\textwidth}>{\raggedright\arraybackslash}p{0.2\textwidth}@{}}
+\toprule\noalign{}
+步 & 菜谱建议（\passthrough{\lstinline!recipes\_suggest!}） & 配餐/改计划（\passthrough{\lstinline!meal\_plan!}） & 失败策略 \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+1 understand & 人数/时长/口味 & 天数/人份/上限；改计划解析 \passthrough{\lstinline!ReviseIntent!} & 按输入参数继续，标「已降级」 \\
+2 plan & \passthrough{\lstinline!list\_inventory!} 取临期 top-10 & top-50，剔过期、合并同名多批、注入偏好 & \passthrough{\lstinline!plan\_failed!}(500)，trace 记 error \\
+3 retrieve/allocate & \passthrough{\lstinline!find\_recipes!} & 候选 12 道 + 贪心草案 & 空结果 → 空态，后续 skipped \\
+4 compose & LLM 排序 + 理由，只能从候选选 & LLM 排餐，不足用 \passthrough{\lstinline!\_fill\_from\_greedy!} & 规则版 + \passthrough{\lstinline!DEGRADE\_WARNING!} \\
+5 verify & 引用 id 在检索结果内、步骤 ≥3 & 5 条规则独立复算；重试→贪心重排→剔坏餐 & 降级/剔除写 \passthrough{\lstinline!warnings!} \\
+\end{longtable}
+}
+
+trace：\passthrough{\lstinline!agent\_runs(id,kind,state,steps JSON,created\_at)!}，步骤固定 \passthrough{\lstinline!\{name,status,started\_at,ms,summary\}!}，\passthrough{\lstinline!state∈running|ok|degraded|failed!}；\passthrough{\lstinline!GET /api/agent/runs/\{id\}!}；前端 \passthrough{\lstinline!AgentTracePanel!} 展开才懒加载。为什么：让「用了 Agent」可验证；降级与模型版同结构。不这么做：一次超时就 500，或模型编个不存在的菜谱 id 页面照样渲染。
+
+\subsection{RAG}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.22\textwidth}>{\raggedright\arraybackslash}p{0.7\textwidth}@{}}
+\toprule\noalign{}
+项 & 实现 \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+语料与切分 & 菜谱 30 + 技巧 20 段 + 偏好；一道菜一 chunk：\passthrough{\lstinline!recipe:<id>!}/\passthrough{\lstinline!步骤 1-N!}/\passthrough{\lstinline!食材+步骤!}；技巧 \passthrough{\lstinline!tip:<n>!}；偏好 \passthrough{\lstinline!pref:<id>!} \\
+分词与索引 & 中文 2 字滑窗（\passthrough{\lstinline!西兰花→西兰/兰花!}），英文数字整段小写；FTS5 \passthrough{\lstinline!unicode61!}（\passthrough{\lstinline!title/tokens/body!}），\passthrough{\lstinline!tokens!} 存 2-gram 串 \\
+召回与融合 & \passthrough{\lstinline!bm25(…,10,8,1)!} 候选 limit×3；可选 \passthrough{\lstinline!/embeddings!} 向量缓存 \passthrough{\lstinline!chunk\_vectors!}；RRF \passthrough{\lstinline!k=60!}，归一 \passthrough{\lstinline!rel!} + \passthrough{\lstinline!matched\_by!} \\
+引用与空态 & \passthrough{\lstinline!\{source,locator,text≤120字\}!}；\passthrough{\lstinline!\_sanitize\_citations!} 只留本次检索真实存在的键，编的丢弃，没给用候选自带引用兜底；检索为空返回 \passthrough{\lstinline![]!}，前端不出卡片 \\
+\end{longtable}
+}
+
+为什么 2-gram：\passthrough{\lstinline!unicode61!} 不切中文，整句入库只能整句匹配。为什么 RRF：BM25 无上界、余弦 {[}-1,1{]}，量纲不同，RRF 只看名次免调权重。为什么引用带 text：角标立刻看到原文，引用变成可核对数据。不这么做：结论无法验证，或 \passthrough{\lstinline!recipe:r\_999!} 也能显示成能点的角标。
+
+\subsection{多模态}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.14\textwidth}>{\raggedright\arraybackslash}p{0.28\textwidth}>{\raggedright\arraybackslash}p{0.5\textwidth}@{}}
+\toprule\noalign{}
+入口 & Prompt 约束 & 输出 \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+\passthrough{\lstinline!/api/capture/recognize!} & 中文名；数量看不清给 null；置信度分档（清晰 0.85--0.95 / 遮挡 0.5--0.7 / 靠猜 \textless0.3） & + \passthrough{\lstinline!item\_id!}、\passthrough{\lstinline!expires\_at!}、\passthrough{\lstinline!matched!} \\
+\passthrough{\lstinline!/api/capture/receipt!} & 逐行；\passthrough{\lstinline!price!} 认不出必须 null；无合计/日期给 null & + \passthrough{\lstinline!purchased\_at!}、\passthrough{\lstinline!total\_price!}；中文字段名折标准键 \\
+\passthrough{\lstinline!/api/inventory/reconcile!} & 数清能看清的；看不清加「看不清：」并压到 \textless0.5；不许编造 & 识别项 → 与 active 库存比对 \\
+\end{longtable}
+}
+
+图片：前端限 8 MB（\passthrough{\lstinline!MAX\_UPLOAD\_BYTES!} 单一来源），中间件按 \passthrough{\lstinline!Content-Length!} 拦 413，接口内再按字节拦一次；三个入口统一落盘 \passthrough{\lstinline!SHIGUANG\_UPLOAD\_DIR!}（\passthrough{\lstinline!capture!}/\passthrough{\lstinline!receipt!}/\passthrough{\lstinline!reconcile!} 都走 \passthrough{\lstinline!config.UPLOAD\_DIR!}），\passthrough{\lstinline!images!} 表存相对路径 + 识别 JSON，可回溯「当时识别成什么」。
+
+为什么：三个入口共用一条视觉链路，归一化只写一处，新入口只需换 Prompt 与字段映射。不这么做：三种返回姿势各写一套解析，必有一处漏字段或漏价格，mock 与真实模型行为还会分叉。
+
+没做的：语音播报/提问（P1 砍掉）、图像生成、多图拼接、专用 OCR；图表是手写 SVG，属可视化，答辩别混着说成生成式多模态。
+
+\subsection{AI 安全与可控}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.14\textwidth}>{\raggedright\arraybackslash}p{0.28\textwidth}>{\raggedright\arraybackslash}p{0.5\textwidth}@{}}
+\toprule\noalign{}
+措施 & 实现 & 不这么做会怎样 \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+识别不入库 & 只写 \passthrough{\lstinline!images!}，入库必须 \passthrough{\lstinline!POST /api/inventory!} & 一次误识别污染碳账与浪费率 \\
+置信度分级 & \textless0.7 进 warnings + 黄标；对账 \textless0.7 进 \passthrough{\lstinline!suspect!}，不判 missing & 「看不清」被当成「吃掉了」 \\
+库外 / 过期 & \passthrough{\lstinline!matched:false!} 标「不计碳账」；推荐/计划先剔 \passthrough{\lstinline!days\_left<0!} 只提示 & 默认因子算假碳账；过期菜被排进计划 \\
+忌口硬约束 & 从偏好文本独立抽词（\passthrough{\lstinline!不吃鸡蛋→鸡蛋!}）+ 库存名/配料名求交，命中整道排除，verify 再查 & 忌口食材不在库存时硬约束整条失效 \\
+偏好与降级 & \textless0.6 只存不生效；偏好可删；冲突以本次指令为准；降级统一「已降级：」前缀写 warnings 并展示 & 误推断永久生效；用户以为吃的是模型结果 \\
+\end{longtable}
+}
+
+\subsection{工具集成}
+
+5 个工具（schema 均 \passthrough{\lstinline!additionalProperties:false!}）：\passthrough{\lstinline!list\_inventory!}（\passthrough{\lstinline!sort∈\{expiry,added,qty\}!}、\passthrough{\lstinline!status!}、\passthrough{\lstinline!limit 1–50!}，临期优先）、\passthrough{\lstinline!find\_recipes!}（\passthrough{\lstinline!ingredients[]!} 必填、\passthrough{\lstinline!max\_minutes 1–240!}，走 RAG 返回带 \passthrough{\lstinline!source/locator!} 的候选）、\passthrough{\lstinline!get\_shelf\_life!}（\passthrough{\lstinline!name!}、\passthrough{\lstinline!storage!}，未命中明说「不编造」）、\passthrough{\lstinline!estimate\_carbon!}（\passthrough{\lstinline!grams!} 必填，与账本同口径）、\passthrough{\lstinline!log\_consumption!}（\passthrough{\lstinline!inventory\_id!}、\passthrough{\lstinline!action∈\{consume,discard\}!}，复用 \passthrough{\lstinline!inventory.consume!}）。
+
+\passthrough{\lstinline!register\_all()!} 幂等注册；\passthrough{\lstinline!call()!} 对未注册/参数不匹配/异常统一返回 \passthrough{\lstinline!\{error,tool,…\}!} 不抛异常，业务层另有本地直调兜底。MCP：\passthrough{\lstinline!mcp/server.py!} 独立进程，stdio JSON-RPC 2.0（\passthrough{\lstinline!initialize!}/\passthrough{\lstinline!tools/list!}/\passthrough{\lstinline!tools/call!}/\passthrough{\lstinline!ping!}），暴露 \passthrough{\lstinline!search\_recipes!}、\passthrough{\lstinline!get\_shelf\_life!}，参数白名单过滤，异常返回 \passthrough{\lstinline!isError:true!} 不断流。可直接跑：
+
+\begin{lstlisting}[language=bash]
+cd apps/server
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | python mcp/server.py
+echo '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | python mcp/server.py
+echo '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"get_shelf_life","arguments":{"name":"西兰花"}}}' | python mcp/server.py
+\end{lstlisting}
+
+为什么不直接让模型写 SQL：白名单 + 类型校验，模型只能在这 5 个动作里选。
+
+\section{业务正确性}
+
+\subsection{\texorpdfstring{5.1 计量（唯一实现：\texttt{domain/inventory.py}）}{5.1 计量（唯一实现：domain/inventory.py）}}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.22\textwidth}>{\raggedright\arraybackslash}p{0.7\textwidth}@{}}
+\toprule\noalign{}
+量 & 公式 / 规则 \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+克数 & \passthrough{\lstinline!grams=qty×avg\_grams!}；改数量重算；食材库缺失用 200 g \\
+碳 / 金额 & \passthrough{\lstinline!grams/1000×carbon\_kg\_per\_kg!}；\passthrough{\lstinline!grams/1000×price\_per\_kg!} \\
+部分消耗 & \passthrough{\lstinline!take=min(grams,remaining)!}；qty 按 \passthrough{\lstinline!left/total!} 比例折算（round 3），只改 grams 会让 qty 脱节 \\
+浪费率与换算 & \passthrough{\lstinline!thrown/(thrown+saved)!}（saved 来自 \passthrough{\lstinline!events(kind=consume)!}）；\passthrough{\lstinline!carbon/0.137!} km、\passthrough{\lstinline!carbon/(16/365)!} 树·天（实测 48.05 kg → 351 km / 1096 树·天） \\
+\end{longtable}
+}
+
+状态机：\passthrough{\lstinline!active|consumed|discarded!}；consume/discard 只允许 active（否则 409）；扣到 0 转终态；每次刷新 \passthrough{\lstinline!verified\_at!}；discard 必须给 \passthrough{\lstinline!reason∈forgot|spoiled|too\_much!}；两者都带 carbon/money，食材表改价不影响历史账。
+
+\subsection{计划生成的 5 条硬规则}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  \passthrough{\lstinline!\_split\_inventory!}：usable/expired 分开，同名多批合并数量与克数（否则两批生菜 1+2 只认 2 颗）；
+\item
+  偏好：\passthrough{\lstinline!avoid!} 抽词 × 库存名 × 候选配料名，命中整道排除；
+\item
+  候选：RAG 12 道，过滤步骤 \textless3；
+\item
+  贪心 \passthrough{\lstinline!\_score=3.0×临期+1.2×普通−0.8×必买缺料−0.02×分钟−0.6×重复菜−2.5×同上餐+0.5×相关度!}；一点库存都用不上取 \passthrough{\lstinline!-inf!}；
+\item
+  落成：逐餐扣库存，超量转 \passthrough{\lstinline!missing!}，缺口合并 \passthrough{\lstinline!shopping!}（可选调味料不列）。
+\end{enumerate}
+
+verify 独立复算：过期不入、累计不超库存、每餐真实 \passthrough{\lstinline!recipe\_id!} 且 citations 非空、临期优先、采购清单去重且必买齐全。不过 → 带 hint 重试 1 次 → 贪心重排 → 剔坏餐 → 仍有问题写 warnings 且 \passthrough{\lstinline!state=degraded!}。
+
+\subsection{改计划的 diff 语义}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.22\textwidth}>{\raggedright\arraybackslash}p{0.7\textwidth}@{}}
+\toprule\noalign{}
+规则 & 实现 \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+只改点名餐次、不许漂移 & \passthrough{\lstinline!\_target\_keys!} 解析目标集合，其它餐沿用存档 \passthrough{\lstinline!uses/missing!}（\passthrough{\lstinline!frozen\_keys!}）；\passthrough{\lstinline!\_diff\_days!} 按 \passthrough{\lstinline!(date,slot)!} 比对 \passthrough{\lstinline!recipe\_id!}+\passthrough{\lstinline!uses!}+\passthrough{\lstinline!missing!}，diff 出现未点名餐次 → \textbf{整次放弃} + 原因 \\
+点名菜做不到要说明 & \passthrough{\lstinline!\_swap\_failure\_reason!} 区分：库里没有 / 超时长 / 含忌口 / 现库存做不了；前缀「没能换成X：」 \\
+冲突与用量 & 本次指令与旧 \passthrough{\lstinline!avoid!} 冲突时以指令为准并提示；未涉及餐沿用存档用量，\passthrough{\lstinline!\_overclaim\_warnings!} 写明「库存 X，计划累计 Y」 \\
+没改成也有话说 & \passthrough{\lstinline!changed=[]!} 返回「指令里没有能落到这份计划上的改动（意图摘要）」，前端显示原因 \\
+\end{longtable}
+}
+
+\subsection{对账}
+
+比对（只读 \passthrough{\lstinline!build\_diff!}）：识别项同名合并、置信度取最高；匹配 \passthrough{\lstinline!item\_id!} → 同名 → 名称互含取最长名组（「番茄」不命中「番茄酱」）；同名多批按 \passthrough{\lstinline!expires\_at!} 升序分配；低置信/看不清进 \passthrough{\lstinline!suspect!} \textbf{不判 missing}；覆盖≈0 → missing，部分覆盖 → reduced\{from,to\}；识别多于库存只给 warning；空识别全部保留。
+
+落地（\passthrough{\lstinline!apply!}）：\passthrough{\lstinline!request\_id!} 缺省服务端生成；\passthrough{\lstinline!checked\_at!} 非法/未来收敛到当前；\textbf{先全量校验} → 幂等指纹 \passthrough{\lstinline!request\_id+action+inventory\_id+目标值!} 查 \passthrough{\lstinline!reconcile\_applied!} → 单事务落库（discard→waste\_log，consume→events，reduced→同比例改 qty/grams，added→\passthrough{\lstinline!add\_items!}）→ 写 \passthrough{\lstinline!events(kind=reconcile)!} → 所有 active 行盖 \passthrough{\lstinline!verified\_at!}（否则 stale 提示永不消失）；任一异常整批回滚。为什么两阶段：中途失败若已提交前几行，用户无法判断哪些生效。不这么做：重复点「应用」把同批扔掉记两次，浪费率翻倍。
+
+\subsection{幂等与事务}
+
+\passthrough{\lstinline!transaction()!} 让块内 \passthrough{\lstinline!get\_conn()!} 返回同一连接的代理（\passthrough{\lstinline!commit/rollback/close!} 空操作），领域函数自带的 commit 不会提前落盘；\passthrough{\lstinline!BEGIN IMMEDIATE!} 一次拿写锁；\passthrough{\lstinline!busy\_timeout=30s!}。老库：\passthrough{\lstinline!MIGRATION\_COLUMNS!}/\passthrough{\lstinline!MIGRATION\_INDEXES!} 补列补索引；\passthrough{\lstinline!repair\_invalid\_times!} 清历史非法 \passthrough{\lstinline!verified\_at!}，触发器拦新写入（垃圾时间戳 = 假新鲜）。
+
+\section{前端工程}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.22\textwidth}>{\raggedright\arraybackslash}p{0.7\textwidth}@{}}
+\toprule\noalign{}
+路由 & 页面与产物（raw / gzip） \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+\passthrough{\lstinline!/!} & 首页：倒计时 + 冰箱全景 + 今日建议（9.13 / 4.37 KB） \\
+\passthrough{\lstinline!/capture!} & 拍照入库（冰箱/小票/对账，39.82 / 13.74 KB；该页 CSS 合计 55.94 / 16.69 KB） \\
+\passthrough{\lstinline!/plan!} & 3 天计划 + 改计划 + 偏好（17.21 / 7.56 KB） \\
+\passthrough{\lstinline!/cook!}、\passthrough{\lstinline!/stats!}、\passthrough{\lstinline!/report!} & 今天吃什么 + 备菜时间轴（14.71 / 6.70）；浪费账本（7.27 / 3.46）；周报 SSE（4.28 / 2.15） \\
+\end{longtable}
+}
+
+6 页全部 \passthrough{\lstinline!React.lazy!}，\passthrough{\lstinline!react/react-dom/react-router-dom!} 单独成块。首屏只加载外壳 + 首页：\textbf{197.41 KB raw / 66.20 KB gzip}（react 164.36 / 53.62 + index 19.89 / 8.96 + css 13.16 / 3.62）。为什么分包：改业务不重下 164 KB 框架；不这么做单包 400 KB+，首屏多等 1--2 秒。
+
+计划与推荐走 SSE（\passthrough{\lstinline!/plan/meals/stream!}、\passthrough{\lstinline!/recipes/suggest/stream!}）：\passthrough{\lstinline!step!} 逐条点亮五步时间线，最后一条 \passthrough{\lstinline!result!} 与普通接口逐字段一致；前端在流不可用（404/405）时自动退回非流式。为什么：Agent 一次要 3--20 s，先给进度再给结果，用户不会以为页面卡死。
+
+组件：\passthrough{\lstinline!components/ui!} 21 个无业务原子（Button/Card/Notice/Skeleton/EmptyState/ConfidenceBar/CitationChip/AgentTrace/StreamProgress\ldots）；\passthrough{\lstinline!layout!} 8 个（含导航表 \passthrough{\lstinline!nav.ts!}）；\passthrough{\lstinline!tour!} 新手引导 3 个（\passthrough{\lstinline!TourProvider!}/\passthrough{\lstinline!TourOverlay!}/\passthrough{\lstinline!tourSteps!}，Esc 可跳过并写 \passthrough{\lstinline!localStorage!}）；\passthrough{\lstinline!features/<域>!} 7 域（capture/plan/cook/dashboard/stats/report/stream，单域 3--38 个文件），纯函数抽 \passthrough{\lstinline!*.ts!}、hook ≤200 行；\passthrough{\lstinline!lib/api!} 类型集中 \passthrough{\lstinline!types*.ts!}。
+
+设计系统：手写 CSS 变量，不引 UI 库/Tailwind/图表库；颜色与分级对齐（urgent 红 0--1 天、soon 黄 2--3 天、fresh 绿 ≥4 天）；环图/趋势图手写 SVG 带 \passthrough{\lstinline!aria-label!}。收益：运行时依赖只有 3 个；代价：组件开发慢。
+
+错误态：传输错误（\passthrough{\lstinline!network/timeout/http\_5xx!}）→ \passthrough{\lstinline!DemoBanner!} 说明「后端没应答，下面是内置样例」并标「演示数据」；401/403/413/422 → 专属文案；业务失败（有 \passthrough{\lstinline!code!}）→ 就地显示；渲染异常 → \passthrough{\lstinline!ErrorBoundary!}；加载/空数据 → \passthrough{\lstinline!Skeleton!}/\passthrough{\lstinline!EmptyState!} + 下一步按钮。为什么分传输与业务错误：前者后端没在，可退回样例；后者后端在但这次不行，必须如实报错。
+
+\section{测试与验证}
+
+110 项全绿（约 15--20 s）。分布：对账 21、改计划 14、库存 10、API 8、计划 8、偏好 8、推荐 7、备菜 7、RAG 6、分词 6、\textbf{流式 6}、小票 5、统计 4。\textbf{前端无自动化测试}，靠文末的人工验收清单。隔离：每用例独立 \passthrough{\lstinline!tmp\_path!} SQLite；种子指向临时空路径；\passthrough{\lstinline!FakeProvider!} 注入，不打真实模型。
+
+真实模型（\passthrough{\lstinline!zhipu!}/\passthrough{\lstinline!glm-4v-flash!}，\passthrough{\lstinline!CHANGELOG.md!} 2026-11-15）：冰箱实景一张返回 \textbf{4 项 / 4.98 s}；同批暴露 ①数量 null ②置信度虚高 1.0 ③三种返回姿势。复测 \passthrough{\lstinline!python scripts/probe\_vlm.py ../../samples/fridge-1.jpg!}（打印条数/耗时/置信度，不打印密钥）；素材 \passthrough{\lstinline!samples/!} 7 张自摄照片。其余耗时均为 mock 回放（零网络、确定性），不能当模型延迟指标。
+
+mock 复跑（每条按各自初始状态单独执行：计划/改计划用同一份 seed，对账在另一份 seed 上做，互不叠加；\passthrough{\lstinline!python scripts/seed\_demo.py --reset!} → 28 条记录、在库 8 条：菠菜过期 1 天、生菜明天到期、北豆腐 2 天、番茄/香菇 3 天、牛奶 5 天、鸡蛋 20 天、鸡胸肉 60 天。下表计划行是\textbf{未学偏好}时的状态；学了「不吃鸡蛋」后会变成 \passthrough{\lstinline!5/3/1!}、采购 11 项------这是规则真的在生效，不是数字漂移）：
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.14\textwidth}>{\raggedright\arraybackslash}p{0.28\textwidth}>{\raggedright\arraybackslash}p{0.5\textwidth}@{}}
+\toprule\noalign{}
+调用 & 结果 & 耗时（本机，随机器浮动） \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+\passthrough{\lstinline!POST /api/plan/meals \{days:3\}!} & 6 餐；\passthrough{\lstinline!coverage \{used\_items:5, expiring\_used:2, unused\_expiring:2\}!}；采购 6 项；5 条 warnings & 80--130 ms \\
+\passthrough{\lstinline!POST …/\{id\}/revise!}「第二天清淡点，别放鸡蛋」 & changed 4 处（带 from/to/reason）；learned 2 条（不吃鸡蛋 0.80 / 口味清淡 0.65） & 180--300 ms \\
+\passthrough{\lstinline!POST /api/recipes/suggest!} / \passthrough{\lstinline!cook/sequence!}（r\_006+r\_002） & 3 条推荐 + 引用原文；备菜 9 步 / 23 分钟 / 3 条 tips（mock 走规则版） & ≈30 / ≈6 ms \\
+\passthrough{\lstinline!POST /api/inventory/reconcile!} → \passthrough{\lstinline!apply!} & missing 4 / reduced 0 / added 3 / suspect 1；apply \passthrough{\lstinline!\{discarded:4\}!}、\passthrough{\lstinline!verified:4!} & 50--60 ms \\
+\passthrough{\lstinline!GET /api/stats/summary?range=30d!}；\passthrough{\lstinline!POST /api/report/weekly!} & 浪费率 0.163（1650÷10120 g）、吃掉 8470 g、碳 48.05 kg、省 114.37 元、car 351 km、trees 1096 天；周报首帧约 40 ms，mock 逐字回放 44 个事件约 1.3 s & --- \\
+\end{longtable}
+}
+
+自洽：\passthrough{\lstinline!1650/(1650+8470)=0.1630!}；\passthrough{\lstinline!48.05/0.137=350.7→351!}；\passthrough{\lstinline!48.05/(16/365)=1096.1→1096!}。
+
+mock 下 \passthrough{\lstinline!cook/sequence!} 恒走规则版、\passthrough{\lstinline!plan!} 的 compose 也常降级，页面会显示「已降级」------这是诚实降级，录屏保留、不要剪掉。
+
+端到端（人工验收）：上传 \passthrough{\lstinline!samples/fridge-1.jpg!} 得 8 条（1 条 0.55 标黄、1 条库外），取消 1 条后确认，入库数=勾选数；首页按 \passthrough{\lstinline!days\_left!} 升序、过期在底部、改到期日颜色变、刷新不丢；对账 4 项标「扔掉」→ \passthrough{\lstinline!discarded=4!}、waste\_log +4、stale 提示消失；计划里过期菠菜不在任何 uses；改计划后仅第 2 天变动。
+
+\section{部署与运维}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.22\textwidth}>{\raggedright\arraybackslash}p{0.7\textwidth}@{}}
+\toprule\noalign{}
+项 & 值 \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+主机与访问 & \passthrough{\lstinline!cloudserver200m!}：Ubuntu / 1.6 GB / 40 GB / Python 3.12.3 / systemd 255；\passthrough{\lstinline!http://47.100.224.209:8720!}（Basic 认证，放行 8720） \\
+进程与目录 & 单 uvicorn worker + systemd，FastAPI 托管 \passthrough{\lstinline!dist!}（无 nginx）；\passthrough{\lstinline!/opt/shiguang/\{releases/<ts>, current→…, shared/\{.env,app.db,upload\}\}!} \\
+安装与回滚 & \passthrough{\lstinline!deploy/install.sh <release>!}（venv + 依赖 + 随机口令 + unit + 软链 + 健康检查）；回滚 \passthrough{\lstinline!ln -sfn /opt/shiguang/releases/<上一个> /opt/shiguang/current \&\& systemctl restart shiguang!} \\
+备份与下线 & 拷 \passthrough{\lstinline!shared/app.db!} 与 \passthrough{\lstinline!shared/upload!}；下线 \passthrough{\lstinline!systemctl disable --now shiguang \&\& rm -rf /opt/shiguang!}（期限 2026-12-31） \\
+\end{longtable}
+}
+
+公网防护（\passthrough{\lstinline!core/security.py!}，默认全关，本地行为不变）：Basic Auth（\passthrough{\lstinline!hmac.compare\_digest!}，\passthrough{\lstinline!/api/health!} 免认证，启用时 \passthrough{\lstinline!docs\_url=None!}）；每 IP 60 s 滑动窗口限流（429 + \passthrough{\lstinline!Retry-After!}，每 500 请求清空桶）；\passthrough{\lstinline!Content-Length > 8 MB!} 直接 413；启动日志只打脱敏配置。为什么默认关：本地开发不需要登录，mock 不出网；开关默认关才能保证旧行为逐字节不变。
+
+\section{局限与下一步}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.22\textwidth}>{\raggedright\arraybackslash}p{0.7\textwidth}@{}}
+\toprule\noalign{}
+局限 & 现状与下一步 \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+模型非确定性 / 依赖光照 & 同图两次可能不同；实测数量 null、置信度虚高 1.0；只留 1 次真实记录。→ 录制当天跑 \passthrough{\lstinline!probe\_vlm.py!} 留档、按图片哈希缓存、加「重拍」引导与多图 \\
+菜谱少 / 软偏好启发式 & 候选池 12 道，3 天计划出现过同一道菜两次；\passthrough{\lstinline!SOFT\_*\_HINTS!} 只影响打分。→ 扩到 100+、加重重复惩罚、打分项写进 trace \\
+单用户 / 单 worker / 向量默认关 & 无登录无多端；单进程并发上限低；默认只有 BM25。→ 不做账号；扩容先换 PG + 外部限流；演示机开 \passthrough{\lstinline!local!}（BGE-M3）对比 \\
+mock 小票共用 fixture & \passthrough{\lstinline!chat\_vision!} 固定返回 \passthrough{\lstinline!recognize\_fridge.json!}，mock 下价格/日期全 null。→ 补 \passthrough{\lstinline!receipt.json!}，按 Prompt 分流 \\
+mock 下 compose 恒降级 & 约束关键词（\passthrough{\lstinline!servings!}）先命中，约束 JSON 被当推荐结果；\passthrough{\lstinline!cook/sequence!} 同样恒走规则版。→ 先判 \passthrough{\lstinline!recommendations/steps!} 结构再判关键词 \\
+\end{longtable}
+}
+
+\section{附录}
+
+\subsection{接口（20 条路径 / 22 个操作）}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.22\textwidth}>{\raggedright\arraybackslash}p{0.7\textwidth}@{}}
+\toprule\noalign{}
+方法 路径 & 说明 \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+\passthrough{\lstinline!GET /api/health!} & \passthrough{\lstinline!\{ok,provider,db\}!}，免认证免限流 \\
+\passthrough{\lstinline!POST /api/capture/recognize!}、\passthrough{\lstinline!/receipt!} & 冰箱图 / 小票 → 识别清单（不入库；小票价格认不出 null） \\
+\passthrough{\lstinline!/api/inventory!}：\passthrough{\lstinline!POST!} 入库、\passthrough{\lstinline!GET!} 查询、\passthrough{\lstinline!PATCH /\{id\}!}、\passthrough{\lstinline!POST /\{id\}/consume!}、\passthrough{\lstinline!POST /\{id\}/discard!} & 含 \passthrough{\lstinline!days\_left/level/stale\_days!}；扣减写 events；丢弃写 waste\_log \\
+\passthrough{\lstinline!/api/inventory/reconcile!}、\passthrough{\lstinline!/apply!} & 拍照比对（只读）；确认后落库（幂等 + 单事务） \\
+\passthrough{\lstinline!POST /api/recipes/suggest!}、\passthrough{\lstinline!GET /api/agent/runs/\{id\}!}、\passthrough{\lstinline!POST /api/cook/sequence!} & 推荐 + 引用 + run\_id；五步轨迹；并行备菜时间轴 \\
+\passthrough{\lstinline!POST /api/plan/meals!}、\passthrough{\lstinline!/meals/\{id\}/revise!}；\passthrough{\lstinline!/api/preferences!} 增删查 & 配餐 + 采购清单 + coverage；改计划 + diff；偏好管理 \\
+\passthrough{\lstinline!POST /api/plan/meals/stream!}、\passthrough{\lstinline!POST /api/recipes/suggest/stream!} & SSE：\passthrough{\lstinline!step*!} → \passthrough{\lstinline!result!} → \passthrough{\lstinline!done!}；失败发 \passthrough{\lstinline!error!} 再 \passthrough{\lstinline!done!}；\passthrough{\lstinline!payload!} 与非流式逐字段一致 \\
+\passthrough{\lstinline!GET /api/stats/summary?range=!}、\passthrough{\lstinline!POST /api/report/weekly!} & 账本汇总；周报 SSE（delta→citations→done） \\
+\end{longtable}
+}
+
+\subsection{数据表与关键文件}
+
+数据表（\passthrough{\lstinline!app/db/schema.sql!}）：\passthrough{\lstinline!items!}（69 条参考数据）、\passthrough{\lstinline!inventory!}（含 \passthrough{\lstinline!verified\_at!}）、\passthrough{\lstinline!recipes!}（30 条）、\passthrough{\lstinline!images!}（识别痕迹）、\passthrough{\lstinline!waste\_log!}、\passthrough{\lstinline!events!}（consume/reconcile 留痕）、\passthrough{\lstinline!reconcile\_applied!}（幂等指纹）、\passthrough{\lstinline!agent\_runs!}、\passthrough{\lstinline!preferences!}、\passthrough{\lstinline!meal\_plans!}（存档供 revise 读回）、\passthrough{\lstinline!chunks!}（送原文）、\passthrough{\lstinline!chunk\_vectors!}（向量缓存）、\passthrough{\lstinline!chunks\_fts!}（FTS5 虚拟表）。
+
+关键文件：\passthrough{\lstinline!app/core/\{provider,mock,tools,security,safety\}.py!}（Provider/工具/安全/脱敏）、\passthrough{\lstinline!app/domain/\{recipes,plan,instruction,preferences\}.py!}（推荐/配餐改计划/指令/偏好）、\passthrough{\lstinline!app/domain/\{reconcile,inventory,stats,report,cook\}.py!}（对账/计量/账本/周报/备菜）、\passthrough{\lstinline!app/rag/*.py!} 与 \passthrough{\lstinline!app/db/\{schema.sql,conn.py,seed.py\}!}（检索/建表迁移）、\passthrough{\lstinline!mcp/server.py!}、\passthrough{\lstinline!scripts/\{seed\_demo,probe\_vlm\}.py!}、\passthrough{\lstinline!deploy/!}。

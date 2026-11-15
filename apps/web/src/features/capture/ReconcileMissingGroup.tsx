@@ -2,7 +2,7 @@ import { DISCARD_REASON_LABELS } from '@/lib/api';
 import type { DiscardReason, MissingAction, ReconcileMissing } from '@/lib/api';
 import { CollapseGroup } from '@/components/ui/CollapseGroup';
 import { Segmented } from '@/components/ui/Segmented';
-import { expiryText } from '@/lib/format';
+import { expiryText, formatQty } from '@/lib/format';
 import type { MissingChoice } from './useReconcile';
 import styles from './ReconcileGroups.module.css';
 
@@ -50,8 +50,7 @@ export function ReconcileMissingGroup({
               <div className={styles.info}>
                 <strong className={styles.name}>{item.name}</strong>
                 <span className={styles.meta}>
-                  {item.qty}
-                  {item.unit} · {expiryText(item.days_left)}
+                  {formatQty(item.qty, item.unit)} · {expiryText(item.days_left)}
                 </span>
               </div>
 

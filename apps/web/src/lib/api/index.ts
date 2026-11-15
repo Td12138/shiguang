@@ -2,6 +2,7 @@
 export * from './types';
 export * from './types-plan';
 export * from './client';
+export { isTransportError } from './http';
 export * from './client-plan';
 export * from './sse';
 export * from './mock';

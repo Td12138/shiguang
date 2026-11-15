@@ -81,6 +81,11 @@
   outline-offset: 1px;
 }
 
+.error {
+  color: var(--color-danger);
+  font-size: var(--fs-1);
+}
+
 .unchanged {
   color: var(--color-text-faint);
   font-size: var(--fs-1);

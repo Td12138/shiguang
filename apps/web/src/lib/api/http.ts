@@ -87,3 +87,13 @@ export function jsonInit(method: string, body: unknown): RequestInit {
     body: JSON.stringify(body),
   };
 }
+
+/**
+ * 是否是「后端根本没应答」：网络中断、超时，或代理/网关返回的非结构化 5xx。
+ * 后端自己抛的业务错误一定带 code（vision_unavailable / receipt_empty…），不算传输错误。
+ */
+export function isTransportError(err: unknown): boolean {
+  if (!(err instanceof ApiError)) return false;
+  if (err.code === 'network' || err.code === 'timeout') return true;
+  return err.code.startsWith('http_5');
+}

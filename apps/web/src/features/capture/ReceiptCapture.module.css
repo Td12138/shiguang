@@ -41,6 +41,13 @@
   margin-bottom: var(--space-2);
 }
 
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
 .footer {
   display: flex;
   align-items: center;
@@ -58,7 +65,14 @@
 }
 
 @media (max-width: 767px) {
-  .footer {
+  .actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
+.footer {
     display: grid;
     gap: var(--space-1);
   }

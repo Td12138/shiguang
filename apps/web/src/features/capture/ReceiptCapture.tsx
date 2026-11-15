@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -6,20 +6,24 @@ import { DemoBanner } from '@/components/ui/DemoBanner';
 import { Notice } from '@/components/ui/Notice';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
-import { formatMoney } from '@/lib/format';
 import { Dropzone } from './Dropzone';
+import { ManualOnlyCard } from './ManualOnlyCard';
+import { ManualRowsEditor } from './ManualRowsEditor';
+import { ReceiptMeta } from './ReceiptMeta';
 import { ReceiptTable } from './ReceiptTable';
 import { SuccessPanel } from './SuccessPanel';
 import { useReceipt } from './useReceipt';
 import styles from './ReceiptCapture.module.css';
 
-/** 「拍小票」流程：上传 → 核对（含单价）→ 带入购物日期入库 */
+/** 「拍小票」流程：上传 → 核对（含单价、可手动补）→ 带入购物日期入库 */
 export function ReceiptCapture() {
   const receipt = useReceipt();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [manualOnly, setManualOnly] = useState(false);
   const busy = receipt.stage === 'uploading' || receipt.stage === 'submitting';
   const allIncluded = receipt.rows.length > 0 && receipt.rows.every((row) => row.included);
+  const totalCount = receipt.includedCount + receipt.manual.items.length;
 
   const onFile = useCallback(
     (file: File): void => {
@@ -53,9 +57,22 @@ export function ReceiptCapture() {
           tone="error"
           title="小票没有识别成功"
           action={
-            <Button variant="secondary" size="sm" onClick={receipt.reset}>
-              重新上传
-            </Button>
+            <div className={styles.actions}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  receipt.reset();
+                  receipt.manual.add();
+                  setManualOnly(true);
+                }}
+              >
+                手动录入
+              </Button>
+              <Button variant="ghost" size="sm" onClick={receipt.reset}>
+                重新上传
+              </Button>
+            </div>
           }
         >
           {receipt.error}
@@ -84,6 +101,15 @@ export function ReceiptCapture() {
         </Card>
       ) : null}
 
+      {manualOnly && receipt.stage !== 'done' ? (
+        <ManualOnlyCard
+          manual={receipt.manual}
+          submitError={receipt.submitError}
+          submitting={receipt.stage === 'submitting'}
+          onSubmit={() => void handleSubmit()}
+        />
+      ) : null}
+
       {receipt.stage === 'review' || receipt.stage === 'submitting' ? (
         <Card
           title="② 核对小票"
@@ -94,20 +120,7 @@ export function ReceiptCapture() {
             </Button>
           }
         >
-          <ul className={styles.meta}>
-            <li>
-              <span className={styles.metaKey}>购买日期</span>
-              <strong className={styles.metaValue} data-empty={receipt.purchasedAt === null || undefined}>
-                {receipt.purchasedAt ?? '小票未识别出日期'}
-              </strong>
-            </li>
-            <li>
-              <span className={styles.metaKey}>合计</span>
-              <strong className={styles.metaValue} data-empty={receipt.totalPrice === null || undefined}>
-                {receipt.totalPrice === null ? '小票未识别出合计' : formatMoney(receipt.totalPrice)}
-              </strong>
-            </li>
-          </ul>
+          <ReceiptMeta purchasedAt={receipt.purchasedAt} totalPrice={receipt.totalPrice} />
 
           {receipt.warnings.length > 0 ? (
             <Notice tone="warn" title={`识别提示（${receipt.warnings.length}）`}>
@@ -123,6 +136,13 @@ export function ReceiptCapture() {
             rows={receipt.rows}
             onChange={receipt.updateRow}
             onToggle={receipt.toggleRow}
+            errors={receipt.rowErrors}
+            disabled={receipt.stage === 'submitting'}
+          />
+
+          <ManualRowsEditor
+            manual={receipt.manual}
+            addLabel="再加一样"
             disabled={receipt.stage === 'submitting'}
           />
 
@@ -143,15 +163,15 @@ export function ReceiptCapture() {
           <div className={styles.footer}>
             <p className={styles.hint}>
               {receipt.purchasedAt
-                ? '入库时会把「购买日期」记为入库时间；单价保留两位小数。'
+                ? '入库时会把「购买日期」记为入库时间；数量支持半个。'
                 : '小票没识别出购买日期，入库时间按现在记录。'}
             </p>
             <Button
               onClick={() => void handleSubmit()}
               loading={receipt.stage === 'submitting'}
-              disabled={receipt.includedCount === 0}
+              disabled={totalCount === 0 || receipt.invalid}
             >
-              确认入库 {receipt.includedCount} 项
+              确认入库 {totalCount} 项
             </Button>
           </div>
         </Card>
@@ -161,7 +181,10 @@ export function ReceiptCapture() {
         <SuccessPanel
           added={receipt.added}
           demoSubmit={receipt.demoSubmit}
-          onReset={receipt.reset}
+          onReset={() => {
+            setManualOnly(false);
+            receipt.reset();
+          }}
           onPlan={() => navigate('/plan')}
         />
       ) : null}

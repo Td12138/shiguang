@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 import { formatDateTime } from '@/lib/format';
 import { Dropzone } from './Dropzone';
+import { ManualRowsEditor } from './ManualRowsEditor';
 import { ReconcileMissingGroup } from './ReconcileMissingGroup';
 import { ReconcileAddedGroup, ReconcileReducedGroup, ReconcileSuspectGroup } from './ReconcileOtherGroups';
 import { ReconcileResultPanel } from './ReconcileResultPanel';
@@ -115,6 +116,7 @@ export function ReconcileCapture() {
               items={reconcile.result.reduced}
               values={reconcile.reducedQty}
               onChange={reconcile.setReducedQty}
+              errors={reconcile.reducedErrors}
               disabled={reconcile.stage === 'applying'}
             />
             <ReconcileAddedGroup
@@ -122,7 +124,14 @@ export function ReconcileCapture() {
               picked={reconcile.addedPicked}
               onToggle={reconcile.toggleAdded}
               disabled={reconcile.stage === 'applying'}
-            />
+            >
+              <ManualRowsEditor
+                manual={reconcile.manual}
+                addLabel="手动加一样"
+                hint="对账的手动新增只放在这一组；其它三组都是既有库存，不能凭空补。"
+                disabled={reconcile.stage === 'applying'}
+              />
+            </ReconcileAddedGroup>
             <ReconcileSuspectGroup items={reconcile.result.suspect} />
           </div>
 
@@ -143,7 +152,7 @@ export function ReconcileCapture() {
             <Button
               onClick={() => void handleApply()}
               loading={reconcile.stage === 'applying'}
-              disabled={reconcile.summary.total === 0}
+              disabled={reconcile.summary.total === 0 || reconcile.invalid}
             >
               应用对账（{reconcile.summary.total} 项）
             </Button>

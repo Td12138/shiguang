@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import { ConfidenceBar } from '@/components/ui/ConfidenceBar';
 import { formatMoney } from '@/lib/format';
+import { QTY_MIN, QTY_STEP } from '@/lib/qty';
 import type { ReceiptRow } from './receiptRows';
 import styles from './ReceiptTable.module.css';
 
@@ -11,11 +12,19 @@ export interface ReceiptTableProps {
   rows: ReceiptRow[];
   onChange: (key: string, patch: Partial<ReceiptRow>) => void;
   onToggle: (key: string) => void;
+  /** 数量非法的行：key → 行内错误 */
+  errors?: Record<string, string>;
   disabled?: boolean;
 }
 
 /** 小票结果表：名称/数量/单位可改，单价与置信度只读；price 为 null 显示「—」 */
-export function ReceiptTable({ rows, onChange, onToggle, disabled = false }: ReceiptTableProps) {
+export function ReceiptTable({
+  rows,
+  onChange,
+  onToggle,
+  errors = {},
+  disabled = false,
+}: ReceiptTableProps) {
   const id = useId();
 
   return (
@@ -73,12 +82,19 @@ export function ReceiptTable({ rows, onChange, onToggle, disabled = false }: Rec
                   id={`${id}-${row.key}-qty`}
                   className={styles.input}
                   type="number"
-                  min={0.1}
-                  step={0.5}
+                  inputMode="decimal"
+                  min={QTY_MIN}
+                  step={QTY_STEP}
                   value={row.qty}
                   onChange={(event) => onChange(row.key, { qty: event.target.value })}
                   disabled={disabled}
+                  aria-invalid={Boolean(errors[row.key]) || undefined}
                 />
+                {errors[row.key] ? (
+                  <span className={styles.qtyError} role="alert">
+                    {errors[row.key]}
+                  </span>
+                ) : null}
               </div>
 
               <div className={`${styles.cell} ${styles.unitCell}`}>

@@ -1,13 +1,15 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { MOCK_RECEIPT, createInventory, recognizeReceipt } from '@/lib/api';
 import {
   countNeedConfirm,
   isOffline,
   messageOf,
+  rowQtyErrors,
   toInventoryItems,
   toRows,
   type ReceiptRow,
 } from './receiptRows';
+import { useManualRows, type ManualRowsState } from './useManualRows';
 
 /** 服务端小票识别上限 */
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
@@ -29,6 +31,11 @@ export interface ReceiptState {
   demoSubmit: boolean;
   needConfirmCount: number;
   includedCount: number;
+  /** 数量非法的行：key → 文案 */
+  rowErrors: Record<string, string>;
+  /** 识别行或手动行有问题时禁止提交 */
+  invalid: boolean;
+  manual: ManualRowsState;
   upload: (file: File) => Promise<void>;
   updateRow: (key: string, patch: Partial<ReceiptRow>) => void;
   toggleRow: (key: string) => void;
@@ -50,6 +57,10 @@ export function useReceipt(): ReceiptState {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [added, setAdded] = useState<number | null>(null);
   const [demoSubmit, setDemoSubmit] = useState(false);
+  const manual = useManualRows();
+
+  const rowErrors = useMemo(() => rowQtyErrors(rows), [rows]);
+  const invalid = Object.keys(rowErrors).length > 0 || manual.invalid;
 
   const upload = useCallback(async (file: File): Promise<void> => {
     if (file.size > MAX_UPLOAD_BYTES) {
@@ -106,7 +117,11 @@ export function useReceipt(): ReceiptState {
   }, []);
 
   const submit = useCallback(async (): Promise<boolean> => {
-    const items = toInventoryItems(rows);
+    if (invalid) {
+      setSubmitError('有数量不合法：改成大于 0 的数字（可用 0.5）再提交');
+      return false;
+    }
+    const items = [...toInventoryItems(rows), ...manual.items];
     if (items.length === 0) {
       setSubmitError('至少保留一条商品再入库');
       return false;
@@ -129,14 +144,14 @@ export function useReceipt(): ReceiptState {
       setStage('review');
       return false;
     }
-  }, [rows, purchasedAt]);
+  }, [rows, purchasedAt, invalid, manual.items]);
 
   const continueAsDemo = useCallback((): void => {
-    setAdded(rows.filter((row) => row.included).length);
+    setAdded(rows.filter((row) => row.included).length + manual.items.length);
     setDemoSubmit(true);
     setSubmitError(null);
     setStage('done');
-  }, [rows]);
+  }, [rows, manual.items]);
 
   const reset = useCallback((): void => {
     setStage('idle');
@@ -149,11 +164,12 @@ export function useReceipt(): ReceiptState {
     setError(null);
     setSubmitError(null);
     setAdded(null);
+    manual.reset();
     setPreviewUrl((previous) => {
       if (previous) URL.revokeObjectURL(previous);
       return null;
     });
-  }, []);
+  }, [manual]);
 
   return {
     stage,
@@ -169,6 +185,9 @@ export function useReceipt(): ReceiptState {
     demoSubmit,
     needConfirmCount: countNeedConfirm(rows),
     includedCount: rows.filter((row) => row.included).length,
+    rowErrors,
+    invalid,
+    manual,
     upload,
     updateRow,
     toggleRow,

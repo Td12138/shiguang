@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import { ConfidenceBar } from '@/components/ui/ConfidenceBar';
-import type { DraftRow } from './useCapture';
+import { QTY_MIN, QTY_STEP } from '@/lib/qty';
+import type { DraftRow } from './captureRows';
 import styles from './RecognizedRow.module.css';
 
 /** 与服务端 LOW_CONFIDENCE 一致 */
@@ -10,11 +11,19 @@ export interface RecognizedRowProps {
   row: DraftRow;
   onChange: (key: string, patch: Partial<DraftRow>) => void;
   onToggle: (key: string) => void;
+  /** 数量非法时的行内错误 */
+  error?: string | null;
   disabled?: boolean;
 }
 
 /** 识别结果逐条校对：名称/数量/单位/到期日可改，低置信度与未匹配标黄 */
-export function RecognizedRow({ row, onChange, onToggle, disabled = false }: RecognizedRowProps) {
+export function RecognizedRow({
+  row,
+  onChange,
+  onToggle,
+  error = null,
+  disabled = false,
+}: RecognizedRowProps) {
   const id = useId();
   const lowConfidence = row.confidence < LOW_CONFIDENCE;
   const flagged = lowConfidence || !row.matched;
@@ -55,12 +64,20 @@ export function RecognizedRow({ row, onChange, onToggle, disabled = false }: Rec
             id={`${id}-qty`}
             className={styles.input}
             type="number"
-            min={0.1}
-            step={0.5}
+            inputMode="decimal"
+            min={QTY_MIN}
+            step={QTY_STEP}
             value={row.qty}
             onChange={(event) => onChange(row.key, { qty: event.target.value })}
             disabled={disabled}
+            aria-invalid={Boolean(error) || undefined}
+            aria-describedby={error ? `${id}-qty-error` : undefined}
           />
+          {error ? (
+            <span id={`${id}-qty-error`} className={styles.qtyError} role="alert">
+              {error}
+            </span>
+          ) : null}
         </div>
 
         <div className={styles.unitField}>

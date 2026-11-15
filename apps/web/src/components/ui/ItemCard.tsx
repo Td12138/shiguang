@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import type { InventoryItem } from '@/lib/api';
 import { resolveCategory } from '@/lib/categories';
 import { isStale } from '@/lib/freshness';
-import { expiryText } from '@/lib/format';
+import { expiryText, formatQty } from '@/lib/format';
 import { Button } from './Button';
 import { ConfidenceBar } from './ConfidenceBar';
 import { ExpiryBadge } from './ExpiryBadge';
@@ -31,7 +31,7 @@ export function ItemCard({
   footer,
 }: ItemCardProps) {
   const category = resolveCategory(item);
-  const ariaLabel = `${category}，${item.name}，${item.qty}${item.unit}，${expiryText(item.days_left)}`;
+  const ariaLabel = `${category}，${item.name}，${formatQty(item.qty, item.unit)}，${expiryText(item.days_left)}`;
 
   return (
     <article className={styles.card} data-level={item.level} data-size={size} aria-label={ariaLabel}>
@@ -40,10 +40,7 @@ export function ItemCard({
         <header className={styles.head}>
           <h3 className={styles.name}>{item.name}</h3>
           <span className={styles.category}>{category}</span>
-          <span className={styles.qty}>
-            {item.qty}
-            {item.unit}
-          </span>
+          <span className={styles.qty}>{formatQty(item.qty, item.unit)}</span>
         </header>
 
         {showDays ? (

@@ -1,4 +1,5 @@
 import type { ShoppingItem } from '@/lib/api';
+import { formatQty } from '@/lib/format';
 import styles from './ShoppingList.module.css';
 
 export interface ShoppingListProps {
@@ -21,10 +22,7 @@ export function ShoppingList({ items }: ShoppingListProps) {
           {items.map((item) => (
             <li key={item.name} className={styles.item}>
               <span className={styles.name}>{item.name}</span>
-              <span className={styles.qty}>
-                {item.qty}
-                {item.unit}
-              </span>
+              <span className={styles.qty}>{formatQty(item.qty, item.unit)}</span>
               <span className={styles.reason}>{item.reason}</span>
             </li>
           ))}

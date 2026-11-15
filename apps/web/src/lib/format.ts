@@ -79,3 +79,21 @@ export function formatDateTime(iso: string): string {
   const pad = (value: number): string => `${value}`.padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
+
+/**
+ * 数量展示（全站唯一入口）：
+ * - 0.5 + 颗 → 「半颗」；1.5 + 个 → 「1 个半」；2 + 把 → 「2 把」
+ * - 没有单位时退回纯数字（0.5 → 「0.5」）
+ * - 非 0.5 的小数（如 0.3）按原值显示，不做四舍五入到半
+ */
+export function formatQty(qty: number, unit?: string): string {
+  if (!Number.isFinite(qty)) return '—';
+  const text = `${Math.round(qty * 100) / 100}`;
+  const trimmedUnit = unit?.trim();
+  if (!trimmedUnit) return text;
+
+  const whole = Math.floor(qty);
+  const isHalf = Math.abs(qty - whole - 0.5) < 1e-9;
+  if (isHalf) return whole === 0 ? `半${trimmedUnit}` : `${whole} ${trimmedUnit}半`;
+  return `${text} ${trimmedUnit}`;
+}

@@ -1,12 +1,17 @@
+import type { ReactNode } from 'react';
 import type { ReconcileAdded, ReconcileReduced, ReconcileSuspect } from '@/lib/api';
 import { CollapseGroup } from '@/components/ui/CollapseGroup';
 import { ConfidenceBar } from '@/components/ui/ConfidenceBar';
+import { formatQty } from '@/lib/format';
+import { QTY_MIN, QTY_STEP } from '@/lib/qty';
 import styles from './ReconcileGroups.module.css';
 
 export interface ReconcileReducedGroupProps {
   items: ReconcileReduced[];
   values: Record<string, string>;
   onChange: (id: string, value: string) => void;
+  /** 行内错误：inventory_id → 文案 */
+  errors?: Record<string, string>;
   disabled?: boolean;
 }
 
@@ -15,12 +20,13 @@ export function ReconcileReducedGroup({
   items,
   values,
   onChange,
+  errors = {},
   disabled = false,
 }: ReconcileReducedGroupProps) {
   if (items.length === 0) return null;
 
   return (
-    <CollapseGroup title="变少了" count={items.length} hint="默认按识别出的数量更新">
+    <CollapseGroup title="变少了" count={items.length} hint="默认按识别出的数量更新，支持 0.5">
       <ul className={styles.list}>
         {items.map((item) => (
           <li key={item.inventory_id} className={styles.row}>
@@ -28,22 +34,28 @@ export function ReconcileReducedGroup({
               <strong className={styles.name}>{item.name}</strong>
             </div>
             <div className={styles.flow}>
-              <span>从 {item.from_qty}</span>
+              <span>从 {formatQty(item.from_qty, item.unit)}</span>
               <span className={styles.arrow} aria-hidden="true">
                 →
               </span>
               <input
                 className={styles.qtyInput}
                 type="number"
-                min={0}
-                step={0.5}
+                inputMode="decimal"
+                min={QTY_MIN}
+                step={QTY_STEP}
                 value={values[item.inventory_id] ?? `${item.to_qty}`}
                 onChange={(event) => onChange(item.inventory_id, event.target.value)}
                 aria-label={`${item.name} 实际剩余数量`}
+                aria-invalid={Boolean(errors[item.inventory_id]) || undefined}
                 disabled={disabled}
               />
               <span>{item.unit}</span>
-              {values[item.inventory_id] === `${item.from_qty}` ? (
+              {errors[item.inventory_id] ? (
+                <span className={styles.error} role="alert">
+                  {errors[item.inventory_id]}
+                </span>
+              ) : values[item.inventory_id] === `${item.from_qty}` ? (
                 <span className={styles.unchanged}>未变化，不会提交</span>
               ) : null}
             </div>
@@ -59,14 +71,22 @@ export interface ReconcileAddedGroupProps {
   picked: Record<string, boolean>;
   onToggle: (name: string) => void;
   disabled?: boolean;
+  /** 组内附加内容：对账允许在「新增」里手动补，其它组不放 */
+  children?: ReactNode;
 }
 
-/** 新增：默认不勾选，勾了才入库 */
-export function ReconcileAddedGroup({ items, picked, onToggle, disabled = false }: ReconcileAddedGroupProps) {
-  if (items.length === 0) return null;
+/** 新增：默认不勾选，勾了才入库；组内可手动加 */
+export function ReconcileAddedGroup({
+  items,
+  picked,
+  onToggle,
+  disabled = false,
+  children,
+}: ReconcileAddedGroupProps) {
+  if (items.length === 0 && !children) return null;
 
   return (
-    <CollapseGroup title="新增" count={items.length} hint="勾选后才会入库">
+    <CollapseGroup title="新增" count={items.length} hint="勾选后才会入库，也可手输">
       <ul className={styles.list}>
         {items.map((item) => {
           const checked = picked[item.name] === true;
@@ -84,10 +104,7 @@ export function ReconcileAddedGroup({ items, picked, onToggle, disabled = false 
                 <span className={styles.addedMain}>
                   <span className={styles.addedName}>
                     <strong className={styles.name}>{item.name}</strong>
-                    <span className={styles.meta}>
-                      {item.qty}
-                      {item.unit}
-                    </span>
+                    <span className={styles.meta}>{formatQty(item.qty, item.unit)}</span>
                   </span>
                   <span className={styles.tags}>
                     {item.matched ? null : <span className={styles.tag} data-warn>未匹配食材库</span>}
@@ -106,6 +123,7 @@ export function ReconcileAddedGroup({ items, picked, onToggle, disabled = false 
           );
         })}
       </ul>
+      {children}
     </CollapseGroup>
   );
 }

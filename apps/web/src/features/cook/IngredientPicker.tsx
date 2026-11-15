@@ -1,6 +1,6 @@
 import type { InventoryItem } from '@/lib/api';
 import { Chip } from '@/components/ui/Chip';
-import { expiryText } from '@/lib/format';
+import { expiryText, formatQty } from '@/lib/format';
 import styles from './IngredientPicker.module.css';
 
 export interface IngredientPickerProps {
@@ -18,7 +18,7 @@ export function IngredientPicker({ inventory, selected, onToggle, disabled = fal
         <Chip
           key={item.id}
           label={item.name}
-          hint={`${expiryText(item.days_left)} · ${item.qty}${item.unit}`}
+          hint={`${expiryText(item.days_left)} · ${formatQty(item.qty, item.unit)}`}
           selected={selected.includes(item.id)}
           onToggle={() => onToggle(item.id)}
           disabled={disabled}

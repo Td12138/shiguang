@@ -1,5 +1,6 @@
 import type { PlanMeal } from '@/lib/api';
 import { CitationChip } from '@/components/ui/CitationChip';
+import { formatQty } from '@/lib/format';
 import { StaleBadge } from '@/components/ui/StaleBadge';
 import styles from './MealCard.module.css';
 
@@ -30,10 +31,7 @@ export function MealCard({ meal, staleDays }: MealCardProps) {
             return (
               <span key={`${use.name}-${use.qty}`} className={styles.use}>
                 {use.name}
-                <em>
-                  {use.qty}
-                  {use.unit}
-                </em>
+                <em>{formatQty(use.qty, use.unit)}</em>
                 {typeof stale === 'number' ? <StaleBadge days={stale} /> : null}
               </span>
             );

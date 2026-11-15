@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError, consumeInventory, loadInventory as fetchInventory, loadSuggestion } from '@/lib/api';
 import type { InventoryItem, RecipeRecommendation, SuggestResponse } from '@/lib/api';
+import type { ConsumeLine } from './consume';
 
 /** 建议条数上限（契约 §6.4 默认 3） */
 const LIMIT = 3;
@@ -29,7 +30,7 @@ export interface CookState {
   selectExpiring: () => void;
   clearSelection: () => void;
   suggest: () => Promise<void>;
-  consume: (recipe: RecipeRecommendation, chosen: string[]) => Promise<ConsumeOutcome>;
+  consume: (recipe: RecipeRecommendation, chosen: ConsumeLine[]) => Promise<ConsumeOutcome>;
   reset: () => void;
 }
 
@@ -98,21 +99,22 @@ export function useCook(): CookState {
   }, [selected]);
 
   const consume = useCallback(
-    async (recipe: RecipeRecommendation, chosen: string[]): Promise<ConsumeOutcome> => {
+    async (recipe: RecipeRecommendation, chosen: ConsumeLine[]): Promise<ConsumeOutcome> => {
       const fromRecipe = (recipe.uses ?? [])
         .map((use) => use.inventory_id)
         .filter((id): id is string => Boolean(id));
-      const ids = fromRecipe.length > 0 ? fromRecipe : chosen;
-      if (ids.length === 0) {
+      const lines: ConsumeLine[] =
+        fromRecipe.length > 0 ? fromRecipe.map((id) => ({ id })) : chosen;
+      if (lines.length === 0) {
         return { ok: false, consumed: [], message: '先勾选这道菜用掉了哪些食材' };
       }
 
       setConsuming(true);
       const consumed: string[] = [];
       try {
-        for (const id of ids) {
-          await consumeInventory(id);
-          consumed.push(id);
+        for (const line of lines) {
+          await consumeInventory(line.id, line.grams);
+          consumed.push(line.id);
         }
         setDoneIds((previous) => [...previous, recipe.recipe_id]);
         await refresh(true);

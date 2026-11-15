@@ -18,20 +18,27 @@
 }
 
 .row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
+  display: grid;
+  gap: 6px;
   padding: 10px var(--space-2);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.row[data-active] {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   cursor: pointer;
 }
 
-.row:hover {
-  border-color: var(--color-primary);
-}
-
-.row input {
+.check input {
   width: 18px;
   height: 18px;
   accent-color: var(--color-primary);
@@ -40,10 +47,57 @@
 .name {
   flex: 1 1 auto;
   font-weight: var(--fw-bold);
+  font-size: var(--fs-2);
+  min-width: 0;
 }
 
-.meta {
+.stock {
+  flex-shrink: 0;
   color: var(--color-text-faint);
   font-size: var(--fs-1);
   font-variant-numeric: tabular-nums;
+}
+
+.qtyRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.qtyInput {
+  width: 84px;
+  padding: 7px 9px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font-size: var(--fs-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.qtyInput:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.qtyInput:disabled {
+  background: var(--color-surface-muted);
+  color: var(--color-text-faint);
+}
+
+.unit {
+  color: var(--color-text-muted);
+  font-size: var(--fs-1);
+}
+
+.estimate {
+  color: var(--color-text-muted);
+  font-size: var(--fs-1);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 767px) {
+  .stock {
+    display: none;
+  }
 }

@@ -9,6 +9,7 @@ import { Notice } from '@/components/ui/Notice';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 import { ConsumeModal } from './ConsumeModal';
+import type { ConsumeLine } from './consume';
 import { CookTimeline } from './CookTimeline';
 import { IngredientPicker } from './IngredientPicker';
 import { SuggestionSection } from './SuggestionSection';
@@ -44,8 +45,8 @@ export default function CookPage() {
     if (result === 'limit') toast(`一次最多 ${MAX_SEQUENCE_RECIPES} 道，先移出一道`, 'info');
   };
 
-  const finish = async (recipe: RecipeRecommendation, manualIds: string[]): Promise<void> => {
-    const outcome = await cook.consume(recipe, manualIds);
+  const finish = async (recipe: RecipeRecommendation, lines: ConsumeLine[]): Promise<void> => {
+    const outcome = await cook.consume(recipe, lines);
     if (outcome.ok) toast(`已扣减：${namesOf(outcome.consumed)}`, 'success');
     else toast(outcome.message ?? '扣减失败', 'error');
   };
@@ -60,7 +61,7 @@ export default function CookPage() {
       return byName ? [byName.id] : [];
     });
     const complete = (recipe.uses ?? []).length > 0 && ids.length === (recipe.uses ?? []).length;
-    if (complete) await finish(recipe, ids);
+    if (complete) await finish(recipe, ids.map((id) => ({ id })));
     else setPending(recipe);
   };
 
@@ -168,10 +169,10 @@ export default function CookPage() {
         recipe={pending}
         inventory={cook.inventory}
         onClose={() => setPending(null)}
-        onConfirm={(ids) => {
+        onConfirm={(lines) => {
           const recipe = pending;
           setPending(null);
-          if (recipe) void finish(recipe, ids);
+          if (recipe) void finish(recipe, lines);
         }}
         submitting={cook.consuming}
       />

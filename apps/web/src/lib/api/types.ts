@@ -68,7 +68,8 @@ export interface CreateInventoryItemInput {
   name: string;
   qty: number;
   unit: string;
-  expires_at: string;
+  /** 缺省时后端按食材库 shelf_life_days 推算（手动录入可不填） */
+  expires_at?: string;
   confidence?: number;
   /** 识别阶段匹配到的食材库 id；带上才能进碳账 */
   item_id?: string | null;

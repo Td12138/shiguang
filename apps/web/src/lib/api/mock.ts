@@ -8,12 +8,11 @@ import {
   getAgentRun,
   getStatsSummary,
   listInventory,
-  recognizeImage,
   recognizeReconcile,
   suggestRecipes,
 } from './client';
 import { createMealPlan, listPreferences } from './client-plan';
-import { MOCK_AGENT_RUN, MOCK_INVENTORY, MOCK_RECOGNITION } from './fixtures';
+import { MOCK_AGENT_RUN, MOCK_INVENTORY } from './fixtures';
 import { MOCK_PLAN } from './fixtures-plan';
 import { MOCK_PREFERENCES } from './fixtures-preferences';
 import { MOCK_RECONCILE } from './fixtures-reconcile';
@@ -24,7 +23,6 @@ import type {
   MealPlan,
   PlanRequest,
   PreferenceList,
-  RecognitionResult,
   ReconcileResult,
   Sourced,
   StatsSummary,
@@ -82,14 +80,6 @@ export function loadStats(range = '30d'): Promise<Sourced<StatsSummary>> {
   return withDemoFallback<StatsSummary>(
     () => getStatsSummary(range),
     () => MOCK_STATS,
-  );
-}
-
-/** 拍照识别：后端不通时回放内置样例，页面必须显示「演示数据」 */
-export function loadRecognition(file: File): Promise<Sourced<RecognitionResult>> {
-  return withDemoFallback<RecognitionResult>(
-    () => recognizeImage(file),
-    () => MOCK_RECOGNITION,
   );
 }
 

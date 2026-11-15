@@ -1,60 +1,15 @@
-import { useCallback, useState } from 'react';
-import { ApiError, createInventory, loadRecognition } from '@/lib/api';
-import type { CreateInventoryItemInput } from '@/lib/api';
+import { useCallback, useMemo, useState } from 'react';
+import { ApiError, MOCK_RECOGNITION, createInventory, isTransportError, recognizeImage } from '@/lib/api';
+import type { CreateInventoryItemInput, RecognizedItem } from '@/lib/api';
+import { parsePositiveQty } from '@/lib/qty';
+import { countNeedConfirm, rowQtyError, toDraftRows, type DraftRow } from './captureRows';
+import { useManualRows } from './useManualRows';
+import type { CaptureStage, CaptureState } from './captureTypes';
 
-/** 与服务端一致：低于该置信度必须人工确认（契约 §6.2） */
-const LOW_CONFIDENCE = 0.7;
 /** 服务端拍照识别上限 15MB，前端先挡一次 */
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
-const DEFAULT_QTY = 1;
 
-export type CaptureStage = 'idle' | 'uploading' | 'review' | 'submitting' | 'done';
-
-export interface DraftRow {
-  key: string;
-  name: string;
-  /** 以字符串保存，允许输入过程中为空 */
-  qty: string;
-  unit: string;
-  expiresAt: string;
-  confidence: number;
-  matched: boolean;
-  itemId: string | null;
-  /** 取消勾选的条目不提交 */
-  included: boolean;
-}
-
-export interface CaptureState {
-  stage: CaptureStage;
-  rows: DraftRow[];
-  warnings: string[];
-  imageId: string | null;
-  /** true = 识别结果来自内置样例 */
-  demo: boolean;
-  previewUrl: string | null;
-  error: string | null;
-  submitError: string | null;
-  added: number | null;
-  /** true = 后端未连，入库未真实写入，仅按演示继续 */
-  demoSubmit: boolean;
-  needConfirmCount: number;
-  includedCount: number;
-  upload: (file: File) => Promise<void>;
-  updateRow: (key: string, patch: Partial<DraftRow>) => void;
-  toggleRow: (key: string) => void;
-  submit: () => Promise<boolean>;
-  continueAsDemo: () => void;
-  reset: () => void;
-}
-
-function isLowConfidence(row: DraftRow): boolean {
-  return row.confidence < LOW_CONFIDENCE || !row.matched;
-}
-
-function parseQty(raw: string): number {
-  const value = Number.parseFloat(raw);
-  return Number.isFinite(value) && value > 0 ? value : DEFAULT_QTY;
-}
+export type { CaptureStage, CaptureState } from './captureTypes';
 
 function messageOf(err: unknown): string {
   return err instanceof ApiError ? err.message : '入库失败，请稍后重试';
@@ -71,6 +26,18 @@ export function useCapture(): CaptureState {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [added, setAdded] = useState<number | null>(null);
   const [demoSubmit, setDemoSubmit] = useState(false);
+  const manual = useManualRows();
+
+  const rowErrors = useMemo(() => {
+    const map: Record<string, string> = {};
+    rows.forEach((row) => {
+      const message = rowQtyError(row);
+      if (message) map[row.key] = message;
+    });
+    return map;
+  }, [rows]);
+
+  const invalid = Object.keys(rowErrors).length > 0 || manual.invalid;
 
   const upload = useCallback(async (file: File): Promise<void> => {
     if (file.size > MAX_UPLOAD_BYTES) {
@@ -87,30 +54,35 @@ export function useCapture(): CaptureState {
       return URL.createObjectURL(file);
     });
 
-    const result = await loadRecognition(file);
-    setDemo(result.demo);
-    setImageId(result.data.image_id);
-    setWarnings(result.data.warnings);
-    setRows(
-      result.data.items.map((item, index) => ({
-        key: `${item.name}-${index}`,
-        name: item.name,
-        qty: `${item.qty}`,
-        unit: item.unit,
-        expiresAt: item.expires_at,
-        confidence: item.confidence,
-        matched: item.matched,
-        itemId: item.item_id,
-        included: true,
-      })),
-    );
-    setStage('review');
+    const applyRecognition = (items: RecognizedItem[], imageKey: string, warningsList: string[], fromDemo: boolean): void => {
+      setDemo(fromDemo);
+      setImageId(imageKey);
+      setWarnings(warningsList);
+      setRows(toDraftRows(items));
+      setStage('review');
+    };
+
+    try {
+      const result = await recognizeImage(file);
+      if (result.items.length === 0) {
+        setError('这张照片里没有识别出食材：换一张更清楚的，或直接手动录入');
+        setStage('idle');
+        return;
+      }
+      applyRecognition(result.items, result.image_id, result.warnings, false);
+    } catch (err) {
+      if (isTransportError(err)) {
+        // 后端没应答才回放样例，页面会显示「演示数据」
+        applyRecognition(MOCK_RECOGNITION.items, MOCK_RECOGNITION.image_id, MOCK_RECOGNITION.warnings, true);
+        return;
+      }
+      setError(err instanceof ApiError ? err.message : '识别失败，请稍后重试');
+      setStage('idle');
+    }
   }, []);
 
   const updateRow = useCallback((key: string, patch: Partial<DraftRow>): void => {
-    setRows((previous) =>
-      previous.map((row) => (row.key === key ? { ...row, ...patch } : row)),
-    );
+    setRows((previous) => previous.map((row) => (row.key === key ? { ...row, ...patch } : row)));
   }, []);
 
   const toggleRow = useCallback((key: string): void => {
@@ -120,16 +92,22 @@ export function useCapture(): CaptureState {
   }, []);
 
   const submit = useCallback(async (): Promise<boolean> => {
-    const items: CreateInventoryItemInput[] = rows
+    if (invalid) {
+      setSubmitError('有数量不合法：改成大于 0 的数字（可用 0.5）再提交');
+      return false;
+    }
+
+    const fromRows: CreateInventoryItemInput[] = rows
       .filter((row) => row.included && row.name.trim())
       .map((row) => ({
         name: row.name.trim(),
-        qty: parseQty(row.qty),
+        qty: parsePositiveQty(row.qty) ?? 0,
         unit: row.unit,
         expires_at: row.expiresAt,
         confidence: row.confidence,
         item_id: row.itemId,
       }));
+    const items = [...fromRows, ...manual.items];
 
     if (items.length === 0) {
       setSubmitError('至少保留一条食材再入库');
@@ -152,14 +130,14 @@ export function useCapture(): CaptureState {
       setStage('review');
       return false;
     }
-  }, [rows, imageId]);
+  }, [rows, imageId, invalid, manual.items]);
 
   const continueAsDemo = useCallback((): void => {
-    setAdded(rows.filter((row) => row.included).length);
+    setAdded(rows.filter((row) => row.included).length + manual.items.length);
     setDemoSubmit(true);
     setSubmitError(null);
     setStage('done');
-  }, [rows]);
+  }, [rows, manual.items]);
 
   const reset = useCallback((): void => {
     setStage('idle');
@@ -171,11 +149,12 @@ export function useCapture(): CaptureState {
     setError(null);
     setSubmitError(null);
     setAdded(null);
+    manual.reset();
     setPreviewUrl((previous) => {
       if (previous) URL.revokeObjectURL(previous);
       return null;
     });
-  }, []);
+  }, [manual]);
 
   return {
     stage,
@@ -188,8 +167,11 @@ export function useCapture(): CaptureState {
     submitError,
     added,
     demoSubmit,
-    needConfirmCount: rows.filter(isLowConfidence).length,
+    needConfirmCount: countNeedConfirm(rows),
     includedCount: rows.filter((row) => row.included).length,
+    rowErrors,
+    invalid,
+    manual,
     upload,
     updateRow,
     toggleRow,

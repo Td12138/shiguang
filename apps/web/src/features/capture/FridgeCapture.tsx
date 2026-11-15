@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -7,27 +7,41 @@ import { Notice } from '@/components/ui/Notice';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 import { Dropzone } from './Dropzone';
+import { ManualOnlyCard } from './ManualOnlyCard';
+import { ManualRowsEditor } from './ManualRowsEditor';
 import { RecognizedRow } from './RecognizedRow';
 import { SuccessPanel } from './SuccessPanel';
 import { useCapture } from './useCapture';
 import styles from './FridgeCapture.module.css';
 
-/** 现有「拍冰箱」流程：拍照 → 校对 → 确认入库 */
+/** 现有「拍冰箱」流程：拍照 → 校对（可手动补）→ 确认入库 */
 export function FridgeCapture() {
   const capture = useCapture();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [manualOnly, setManualOnly] = useState(false);
   const busy = capture.stage === 'uploading' || capture.stage === 'submitting';
   const allIncluded = capture.rows.length > 0 && capture.rows.every((row) => row.included);
+  const totalCount = capture.includedCount + capture.manual.items.length;
+
+  const onFile = useCallback(
+    (file: File): void => {
+      void capture.upload(file);
+    },
+    [capture.upload],
+  );
 
   const handleSubmit = async (): Promise<void> => {
     const ok = await capture.submit();
+    if (ok) setManualOnly(false);
     toast(ok ? '已确认入库' : '入库没有完成，看看提示', ok ? 'success' : 'error');
   };
 
-  const onFile = useCallback((file: File): void => {
-    void capture.upload(file);
-  }, [capture.upload]);
+  const startManual = (): void => {
+    capture.reset();
+    capture.manual.add();
+    setManualOnly(true);
+  };
 
   const toggleAll = (): void => {
     capture.rows.forEach((row) => {
@@ -49,9 +63,14 @@ export function FridgeCapture() {
           tone="error"
           title="上传没有成功"
           action={
-            <Button variant="secondary" size="sm" onClick={capture.reset}>
-              重新开始
-            </Button>
+            <div className={styles.actions}>
+              <Button variant="secondary" size="sm" onClick={startManual}>
+                手动录入
+              </Button>
+              <Button variant="ghost" size="sm" onClick={capture.reset}>
+                重新开始
+              </Button>
+            </div>
           }
         >
           {capture.error}
@@ -75,6 +94,15 @@ export function FridgeCapture() {
             <Skeleton height="72px" radius="var(--radius-md)" />
           </div>
         </Card>
+      ) : null}
+
+      {manualOnly && capture.stage !== 'done' ? (
+        <ManualOnlyCard
+          manual={capture.manual}
+          submitError={capture.submitError}
+          submitting={capture.stage === 'submitting'}
+          onSubmit={() => void handleSubmit()}
+        />
       ) : null}
 
       {capture.stage === 'review' || capture.stage === 'submitting' ? (
@@ -104,10 +132,17 @@ export function FridgeCapture() {
                 row={row}
                 onChange={capture.updateRow}
                 onToggle={capture.toggleRow}
+                error={capture.rowErrors[row.key] ?? null}
                 disabled={capture.stage === 'submitting'}
               />
             ))}
           </ul>
+
+          <ManualRowsEditor
+            manual={capture.manual}
+            addLabel="再加一样"
+            disabled={capture.stage === 'submitting'}
+          />
 
           {capture.submitError ? (
             <Notice
@@ -125,14 +160,14 @@ export function FridgeCapture() {
 
           <div className={styles.footer}>
             <p className={styles.hint}>
-              未匹配食材库的条目不计入碳账；数量 × 平均重量决定克数口径。
+              未匹配食材库的条目不计入碳账；数量 × 平均重量决定克数口径，数量支持半个。
             </p>
             <Button
               onClick={() => void handleSubmit()}
               loading={capture.stage === 'submitting'}
-              disabled={capture.includedCount === 0}
+              disabled={totalCount === 0 || capture.invalid}
             >
-              确认入库 {capture.includedCount} 条
+              确认入库 {totalCount} 条
             </Button>
           </div>
         </Card>
@@ -142,11 +177,13 @@ export function FridgeCapture() {
         <SuccessPanel
           added={capture.added}
           demoSubmit={capture.demoSubmit}
-          onReset={capture.reset}
+          onReset={() => {
+            setManualOnly(false);
+            capture.reset();
+          }}
           onPlan={() => navigate('/plan')}
         />
       ) : null}
     </>
   );
 }
-

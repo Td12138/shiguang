@@ -68,6 +68,11 @@
   max-width: 240px;
 }
 
+.qtyError {
+  color: var(--color-danger);
+  font-size: var(--fs-1);
+}
+
 .flags {
   grid-column: 1 / -1;
   display: flex;

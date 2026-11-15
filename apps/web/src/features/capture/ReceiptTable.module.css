@@ -67,6 +67,13 @@
   outline-offset: 1px;
 }
 
+.qtyError {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-danger);
+  font-size: var(--fs-1);
+}
+
 .price {
   font-size: var(--fs-2);
   font-variant-numeric: tabular-nums;
@@ -135,7 +142,14 @@
     grid-column: 3 / 4;
   }
 
-  .price {
+  .qtyError {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-danger);
+  font-size: var(--fs-1);
+}
+
+.price {
     grid-column: 4 / 5;
     align-self: center;
   }

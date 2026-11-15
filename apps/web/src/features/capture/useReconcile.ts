@@ -1,51 +1,22 @@
 import { useCallback, useMemo, useState } from 'react';
 import { ApiError, applyReconcile, loadReconcile } from '@/lib/api';
-import type {
-  DiscardReason,
-  MissingAction,
-  ReconcileApplied,
-  ReconcileResult,
-} from '@/lib/api';
+import type { DiscardReason, MissingAction, ReconcileApplied, ReconcileResult } from '@/lib/api';
 import {
   DEFAULT_REASON,
   buildApplyPayload,
   payloadSize,
+  reducedQtyErrors,
   summarize,
   type MissingChoice,
-  type ReconcileSummary,
 } from './reconcileModel';
+import { useManualRows } from './useManualRows';
+import type { ReconcileState, ReconcileStage } from './reconcileTypes';
+
+export type { MissingChoice, ReconcileSummary } from './reconcileModel';
+export type { ReconcileStage, ReconcileState } from './reconcileTypes';
 
 /** 服务端上传上限 */
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
-
-export type ReconcileStage = 'idle' | 'uploading' | 'review' | 'applying' | 'done';
-
-export type { MissingChoice, ReconcileSummary } from './reconcileModel';
-
-export interface ReconcileState {
-  stage: ReconcileStage;
-  result: ReconcileResult | null;
-  demo: boolean;
-  previewUrl: string | null;
-  error: string | null;
-  applyError: string | null;
-  applied: ReconcileApplied | null;
-  choices: Record<string, MissingChoice>;
-  reducedQty: Record<string, string>;
-  addedPicked: Record<string, boolean>;
-  summary: ReconcileSummary;
-  /** 四个分组都为空：照片里没有可比对的内容 */
-  empty: boolean;
-  upload: (file: File) => Promise<void>;
-  setMissingAction: (id: string, action: MissingAction) => void;
-  setMissingReason: (id: string, reason: DiscardReason) => void;
-  setReducedQty: (id: string, value: string) => void;
-  toggleAdded: (name: string) => void;
-  apply: () => Promise<boolean>;
-  /** 把三类动作复位成安全默认值（全部保留） */
-  resetChoices: () => void;
-  reset: () => void;
-}
 
 function messageOf(err: unknown, fallback: string): string {
   return err instanceof ApiError ? err.message : fallback;
@@ -62,12 +33,18 @@ export function useReconcile(): ReconcileState {
   const [choices, setChoices] = useState<Record<string, MissingChoice>>({});
   const [reducedQty, setReducedQtyState] = useState<Record<string, string>>({});
   const [addedPicked, setAddedPicked] = useState<Record<string, boolean>>({});
+  const manual = useManualRows();
 
   const resetChoices = useCallback((): void => {
     setChoices({});
     setReducedQtyState({});
     setAddedPicked({});
   }, []);
+
+  const resetAll = useCallback((): void => {
+    resetChoices();
+    manual.reset();
+  }, [resetChoices, manual.reset]);
 
   const upload = useCallback(
     async (file: File): Promise<void> => {
@@ -79,7 +56,10 @@ export function useReconcile(): ReconcileState {
       setError(null);
       setApplyError(null);
       setApplied(null);
-      resetChoices();
+      setChoices({});
+      setReducedQtyState({});
+      setAddedPicked({});
+      manual.reset();
       setPreviewUrl((previous) => {
         if (previous) URL.revokeObjectURL(previous);
         return URL.createObjectURL(file);
@@ -90,7 +70,7 @@ export function useReconcile(): ReconcileState {
       setDemo(response.demo);
       setStage('review');
     },
-    [resetChoices],
+    [resetAll],
   );
 
   const setMissingAction = useCallback((id: string, action: MissingAction): void => {
@@ -115,9 +95,12 @@ export function useReconcile(): ReconcileState {
     setAddedPicked((previous) => ({ ...previous, [name]: !previous[name] }));
   }, []);
 
+  const reducedErrors = useMemo(() => reducedQtyErrors(result, reducedQty), [result, reducedQty]);
+  const invalid = manual.invalid || Object.keys(reducedErrors).length > 0;
+
   const summary = useMemo(
-    () => summarize(result, choices, reducedQty, addedPicked),
-    [result, choices, reducedQty, addedPicked],
+    () => summarize(result, choices, reducedQty, addedPicked, manual.items.length),
+    [result, choices, reducedQty, addedPicked, manual.items.length],
   );
 
   const empty = useMemo(() => {
@@ -131,7 +114,11 @@ export function useReconcile(): ReconcileState {
   }, [result]);
 
   const apply = useCallback(async (): Promise<boolean> => {
-    const payload = buildApplyPayload(result, choices, reducedQty, addedPicked);
+    if (invalid) {
+      setApplyError('有数量不合法：改成大于 0 的数字（可用 0.5）再应用');
+      return false;
+    }
+    const payload = buildApplyPayload(result, choices, reducedQty, addedPicked, manual.items);
     if (payloadSize(payload) === 0) {
       setApplyError('没有需要应用的改动：默认全部保留，只有你亲手标记的才会被改');
       return false;
@@ -142,7 +129,7 @@ export function useReconcile(): ReconcileState {
     try {
       const response = await applyReconcile(payload);
       setApplied(response.applied);
-      resetChoices();
+      resetAll();
       setStage('done');
       return true;
     } catch (err) {
@@ -151,7 +138,7 @@ export function useReconcile(): ReconcileState {
       setStage('review');
       return false;
     }
-  }, [result, choices, reducedQty, addedPicked, resetChoices]);
+  }, [result, choices, reducedQty, addedPicked, manual.items, invalid, resetAll]);
 
   const reset = useCallback((): void => {
     setStage('idle');
@@ -160,12 +147,12 @@ export function useReconcile(): ReconcileState {
     setError(null);
     setApplyError(null);
     setApplied(null);
-    resetChoices();
+    resetAll();
     setPreviewUrl((previous) => {
       if (previous) URL.revokeObjectURL(previous);
       return null;
     });
-  }, [resetChoices]);
+  }, [resetAll]);
 
   return {
     stage,
@@ -177,9 +164,12 @@ export function useReconcile(): ReconcileState {
     applied,
     choices,
     reducedQty,
+    reducedErrors,
     addedPicked,
     summary,
+    invalid,
     empty,
+    manual,
     upload,
     setMissingAction,
     setMissingReason,

@@ -124,10 +124,15 @@ def _normalize_vision_payload(data: Any) -> dict[str, Any] | None:
         return None
     items = data.get("items")
     if isinstance(items, list):
-        return {
+        payload: dict[str, Any] = {
             "items": _flatten_vision_items(items),
             "warnings": [str(x) for x in data.get("warnings", []) if isinstance(x, str)],
         }
+        # 小票链路还要用这两个顶层字段，不能在归一化时丢掉
+        for key in ("purchased_at", "total_price"):
+            if key in data:
+                payload[key] = data[key]
+        return payload
     return None
 
 

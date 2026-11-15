@@ -12,6 +12,14 @@
 \usepackage{amsmath}
 \usepackage{listings}
 
+% PDF 元信息（评审在阅读器里能看到标题/主题）
+\hypersetup{
+  pdftitle={食光（剩食管家）· 技术文档},
+  pdfsubject={2026 第九届传智杯全国大学生数智创新与 AI 应用大赛 · AI WEB 网页开发挑战赛（省赛作品）},
+  pdfkeywords={食光, 剩食管家, 食材管理, FastAPI, React, 大模型, RAG, 多模态},
+  pdfcreator={XeLaTeX}
+}
+
 \definecolor{primary}{HTML}{1F6F54}
 \definecolor{lightgray}{HTML}{F2F4F2}
 \definecolor{tblhead}{HTML}{EEF3EF}
@@ -37,6 +45,8 @@
 
 \providecommand{\passthrough}[1]{#1}
 \providecommand{\tightlist}{}
+% 长斜杠串（组件名/目录名）里允许换行：效果是「/ + 可断点」，不产生空格
+\newcommand{\sbrk}{/\allowbreak}
 \newcounter{none}
 \renewcommand{\thenone}{}
 

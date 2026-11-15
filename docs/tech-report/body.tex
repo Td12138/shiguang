@@ -1,6 +1,6 @@
 \begin{quote}
-技术文档 PDF ≤30 页。函数名、接口、数值取自当前代码与实测记录；未实现项在 §9 明说。
-基线：\passthrough{\lstinline!apps/server!}（FastAPI + SQLite）+ \passthrough{\lstinline!apps/web!}（React 18 + TS + Vite），110 项 pytest 全绿（前端无自动化测试）。
+技术文档 PDF \ensuremath{\le}30 页。函数名、接口、数值取自当前代码与实测记录；未实现项在 §9 明说。
+基线：\passthrough{\lstinline!apps/server!}（FastAPI + SQLite）+ \passthrough{\lstinline!apps/web!}（React 18 + TS + Vite），141 项 pytest 全绿（110 项业务 + 31 项审查回归；前端无自动化测试）。
 \end{quote}
 
 \section{一页摘要}
@@ -17,7 +17,7 @@
 方案 & 先管时效再谈菜谱：拍冰箱 → 校对入库 → 临期倒计时 → 配餐消耗 → 浪费/碳账。中途可拍小票批量入库、拍第二张对账、一句话改计划 \\
 形态 & 6 个路由的单页 Web，主入口是拍照与卡片；唯一对话入口是计划页底部「改计划」框 \\
 关键技术 & Provider 抽象 + JSON 模式 + pydantic + 重试 1 次 + 规则降级；双五步状态机轨迹落库；2-gram + FTS5 BM25 + 可选向量 RRF + 引用回链；三入口视觉识别与三形态归一；AI 不直接改数据；5 工具 + MCP stdio \\
-规模 & 22 个接口操作（20 条路径，含 2 个 SSE 流式）；12 实体表 + 1 张 FTS5 表；食材 69 / 菜谱 30 / 技巧 20 段 / 别名 49；前端 6 页 + 21 个基础组件；后端 110 项测试 \\
+规模 & 22 个接口操作（20 条路径，含 2 个 SSE 流式）；12 实体表 + 1 张 FTS5 表；食材 69 / 菜谱 30 / 技巧 20 段 / 别名 49；前端 6 页 + 21 个基础组件；后端 141 项测试 \\
 结果 & 真实 \passthrough{\lstinline!glm-4v-flash!}：4 项 / 4.98 s。mock 复跑：计划 80--130 ms（6 餐、用掉 5 项、临期 2 项）、改计划 180--300 ms（4 处）、对账 4 不见/3 新增/1 待确认、30 天浪费率 16.3\%、首屏 66.20 KB gzip \\
 我的判断 & 技术价值不在「调通模型」，在\textbf{把不确定性做成可校对流程}：识别必校对、结论必带引用、失败必降级且可见、改数据必留痕。代价多一步确认，收益是误识别不污染碳账 \\
 \end{longtable}
@@ -116,11 +116,11 @@ Prompt 版本化：Prompt 是模块顶部常量（\passthrough{\lstinline!VISION
 2 plan & \passthrough{\lstinline!list\_inventory!} 取临期 top-10 & top-50，剔过期、合并同名多批、注入偏好 & \passthrough{\lstinline!plan\_failed!}(500)，trace 记 error \\
 3 retrieve/allocate & \passthrough{\lstinline!find\_recipes!} & 候选 12 道 + 贪心草案 & 空结果 → 空态，后续 skipped \\
 4 compose & LLM 排序 + 理由，只能从候选选 & LLM 排餐，不足用 \passthrough{\lstinline!\_fill\_from\_greedy!} & 规则版 + \passthrough{\lstinline!DEGRADE\_WARNING!} \\
-5 verify & 引用 id 在检索结果内、步骤 ≥3 & 5 条规则独立复算；重试→贪心重排→剔坏餐 & 降级/剔除写 \passthrough{\lstinline!warnings!} \\
+5 verify & 引用 id 在检索结果内、步骤 \ensuremath{\ge}3 & 5 条规则独立复算；重试→贪心重排→剔坏餐 & 降级/剔除写 \passthrough{\lstinline!warnings!} \\
 \end{longtable}
 }
 
-trace：\passthrough{\lstinline!agent\_runs(id,kind,state,steps JSON,created\_at)!}，步骤固定 \passthrough{\lstinline!\{name,status,started\_at,ms,summary\}!}，\passthrough{\lstinline!state∈running|ok|degraded|failed!}；\passthrough{\lstinline!GET /api/agent/runs/\{id\}!}；前端 \passthrough{\lstinline!AgentTracePanel!} 展开才懒加载。为什么：让「用了 Agent」可验证；降级与模型版同结构。不这么做：一次超时就 500，或模型编个不存在的菜谱 id 页面照样渲染。
+trace：\passthrough{\lstinline!agent\_runs(id,kind,state,steps JSON,created\_at)!}，步骤固定 \passthrough{\lstinline!\{name,status,started\_at,ms,summary\}!}，\passthrough{\lstinline!state!} 取 \passthrough{\lstinline!running|ok|degraded|failed!} 之一；\passthrough{\lstinline!GET /api/agent/runs/\{id\}!}；前端 \passthrough{\lstinline!AgentTracePanel!} 展开才懒加载。为什么：让「用了 Agent」可验证；降级与模型版同结构。不这么做：一次超时就 500，或模型编个不存在的菜谱 id 页面照样渲染。
 
 \subsection{RAG}
 
@@ -135,7 +135,7 @@ trace：\passthrough{\lstinline!agent\_runs(id,kind,state,steps JSON,created\_at
 语料与切分 & 菜谱 30 + 技巧 20 段 + 偏好；一道菜一 chunk：\passthrough{\lstinline!recipe:<id>!}/\passthrough{\lstinline!步骤 1-N!}/\passthrough{\lstinline!食材+步骤!}；技巧 \passthrough{\lstinline!tip:<n>!}；偏好 \passthrough{\lstinline!pref:<id>!} \\
 分词与索引 & 中文 2 字滑窗（\passthrough{\lstinline!西兰花→西兰/兰花!}），英文数字整段小写；FTS5 \passthrough{\lstinline!unicode61!}（\passthrough{\lstinline!title/tokens/body!}），\passthrough{\lstinline!tokens!} 存 2-gram 串 \\
 召回与融合 & \passthrough{\lstinline!bm25(…,10,8,1)!} 候选 limit×3；可选 \passthrough{\lstinline!/embeddings!} 向量缓存 \passthrough{\lstinline!chunk\_vectors!}；RRF \passthrough{\lstinline!k=60!}，归一 \passthrough{\lstinline!rel!} + \passthrough{\lstinline!matched\_by!} \\
-引用与空态 & \passthrough{\lstinline!\{source,locator,text≤120字\}!}；\passthrough{\lstinline!\_sanitize\_citations!} 只留本次检索真实存在的键，编的丢弃，没给用候选自带引用兜底；检索为空返回 \passthrough{\lstinline![]!}，前端不出卡片 \\
+引用与空态 & \passthrough{\lstinline!\{source,locator,text\}!} 且正文 \ensuremath{\le}120 字；\passthrough{\lstinline!\_sanitize\_citations!} 只留本次检索真实存在的键，编的丢弃，没给用候选自带引用兜底；检索为空返回 \passthrough{\lstinline![]!}，前端不出卡片 \\
 \end{longtable}
 }
 
@@ -183,7 +183,7 @@ trace：\passthrough{\lstinline!agent\_runs(id,kind,state,steps JSON,created\_at
 
 \subsection{工具集成}
 
-5 个工具（schema 均 \passthrough{\lstinline!additionalProperties:false!}）：\passthrough{\lstinline!list\_inventory!}（\passthrough{\lstinline!sort∈\{expiry,added,qty\}!}、\passthrough{\lstinline!status!}、\passthrough{\lstinline!limit 1–50!}，临期优先）、\passthrough{\lstinline!find\_recipes!}（\passthrough{\lstinline!ingredients[]!} 必填、\passthrough{\lstinline!max\_minutes 1–240!}，走 RAG 返回带 \passthrough{\lstinline!source/locator!} 的候选）、\passthrough{\lstinline!get\_shelf\_life!}（\passthrough{\lstinline!name!}、\passthrough{\lstinline!storage!}，未命中明说「不编造」）、\passthrough{\lstinline!estimate\_carbon!}（\passthrough{\lstinline!grams!} 必填，与账本同口径）、\passthrough{\lstinline!log\_consumption!}（\passthrough{\lstinline!inventory\_id!}、\passthrough{\lstinline!action∈\{consume,discard\}!}，复用 \passthrough{\lstinline!inventory.consume!}）。
+5 个工具（schema 均 \passthrough{\lstinline!additionalProperties:false!}）：\passthrough{\lstinline!list\_inventory!}（\passthrough{\lstinline!sort!} 取 \passthrough{\lstinline!expiry|added|qty!}、\passthrough{\lstinline!status!}、\passthrough{\lstinline!limit 1–50!}，临期优先）、\passthrough{\lstinline!find\_recipes!}（\passthrough{\lstinline!ingredients[]!} 必填、\passthrough{\lstinline!max\_minutes 1–240!}，走 RAG 返回带 \passthrough{\lstinline!source/locator!} 的候选）、\passthrough{\lstinline!get\_shelf\_life!}（\passthrough{\lstinline!name!}、\passthrough{\lstinline!storage!}，未命中明说「不编造」）、\passthrough{\lstinline!estimate\_carbon!}（\passthrough{\lstinline!grams!} 必填，与账本同口径）、\passthrough{\lstinline!log\_consumption!}（\passthrough{\lstinline!inventory\_id!}、\passthrough{\lstinline!action!} 取 \passthrough{\lstinline!consume|discard!}，复用 \passthrough{\lstinline!inventory.consume!}）。
 
 \passthrough{\lstinline!register\_all()!} 幂等注册；\passthrough{\lstinline!call()!} 对未注册/参数不匹配/异常统一返回 \passthrough{\lstinline!\{error,tool,…\}!} 不抛异常，业务层另有本地直调兜底。MCP：\passthrough{\lstinline!mcp/server.py!} 独立进程，stdio JSON-RPC 2.0（\passthrough{\lstinline!initialize!}/\passthrough{\lstinline!tools/list!}/\passthrough{\lstinline!tools/call!}/\passthrough{\lstinline!ping!}），暴露 \passthrough{\lstinline!search\_recipes!}、\passthrough{\lstinline!get\_shelf\_life!}，参数白名单过滤，异常返回 \passthrough{\lstinline!isError:true!} 不断流。可直接跑：
 
@@ -198,7 +198,7 @@ echo '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"get_shelf_
 
 \section{业务正确性}
 
-\subsection{\texorpdfstring{5.1 计量（唯一实现：\texttt{domain/inventory.py}）}{5.1 计量（唯一实现：domain/inventory.py）}}
+\subsection{\texorpdfstring{计量（唯一实现：\texttt{domain/inventory.py}）}{计量（唯一实现：domain/inventory.py）}}
 
 {\def\LTcaptype{none} % do not increment counter
 \begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.22\textwidth}>{\raggedright\arraybackslash}p{0.7\textwidth}@{}}
@@ -215,7 +215,7 @@ echo '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"get_shelf_
 \end{longtable}
 }
 
-状态机：\passthrough{\lstinline!active|consumed|discarded!}；consume/discard 只允许 active（否则 409）；扣到 0 转终态；每次刷新 \passthrough{\lstinline!verified\_at!}；discard 必须给 \passthrough{\lstinline!reason∈forgot|spoiled|too\_much!}；两者都带 carbon/money，食材表改价不影响历史账。
+状态机：\passthrough{\lstinline!active|consumed|discarded!}；consume/discard 只允许 active（否则 409）；扣到 0 转终态；每次刷新 \passthrough{\lstinline!verified\_at!}；discard 必须给 \passthrough{\lstinline!reason!}（\passthrough{\lstinline!forgot|spoiled|too\_much!}）；两者都带 carbon/money，食材表改价不影响历史账。
 
 \subsection{计划生成的 5 条硬规则}
 
@@ -255,7 +255,7 @@ verify 独立复算：过期不入、累计不超库存、每餐真实 \passthro
 
 \subsection{对账}
 
-比对（只读 \passthrough{\lstinline!build\_diff!}）：识别项同名合并、置信度取最高；匹配 \passthrough{\lstinline!item\_id!} → 同名 → 名称互含取最长名组（「番茄」不命中「番茄酱」）；同名多批按 \passthrough{\lstinline!expires\_at!} 升序分配；低置信/看不清进 \passthrough{\lstinline!suspect!} \textbf{不判 missing}；覆盖≈0 → missing，部分覆盖 → reduced\{from,to\}；识别多于库存只给 warning；空识别全部保留。
+比对（只读 \passthrough{\lstinline!build\_diff!}）：识别项同名合并、置信度取最高；匹配 \passthrough{\lstinline!item\_id!} → 精确同名 / 别名表；不做名称互含（「番茄」不命中「番茄酱」）；同名多批按 \passthrough{\lstinline!expires\_at!} 升序分配；低置信/看不清进 \passthrough{\lstinline!suspect!} \textbf{不判 missing}；覆盖\ensuremath{\approx}0 → missing，部分覆盖 → reduced\{from,to\}；识别多于库存只给 warning；空识别全部保留。
 
 落地（\passthrough{\lstinline!apply!}）：\passthrough{\lstinline!request\_id!} 缺省服务端生成；\passthrough{\lstinline!checked\_at!} 非法/未来收敛到当前；\textbf{先全量校验} → 幂等指纹 \passthrough{\lstinline!request\_id+action+inventory\_id+目标值!} 查 \passthrough{\lstinline!reconcile\_applied!} → 单事务落库（discard→waste\_log，consume→events，reduced→同比例改 qty/grams，added→\passthrough{\lstinline!add\_items!}）→ 写 \passthrough{\lstinline!events(kind=reconcile)!} → 所有 active 行盖 \passthrough{\lstinline!verified\_at!}（否则 stale 提示永不消失）；任一异常整批回滚。为什么两阶段：中途失败若已提交前几行，用户无法判断哪些生效。不这么做：重复点「应用」把同批扔掉记两次，浪费率翻倍。
 
@@ -284,17 +284,17 @@ verify 独立复算：过期不入、累计不超库存、每餐真实 \passthro
 
 计划与推荐走 SSE（\passthrough{\lstinline!/plan/meals/stream!}、\passthrough{\lstinline!/recipes/suggest/stream!}）：\passthrough{\lstinline!step!} 逐条点亮五步时间线，最后一条 \passthrough{\lstinline!result!} 与普通接口逐字段一致；前端在流不可用（404/405）时自动退回非流式。为什么：Agent 一次要 3--20 s，先给进度再给结果，用户不会以为页面卡死。
 
-组件：\passthrough{\lstinline!components/ui!} 21 个无业务原子（Button/Card/Notice/Skeleton/EmptyState/ConfidenceBar/CitationChip/AgentTrace/StreamProgress\ldots）；\passthrough{\lstinline!layout!} 8 个（含导航表 \passthrough{\lstinline!nav.ts!}）；\passthrough{\lstinline!tour!} 新手引导 3 个（\passthrough{\lstinline!TourProvider!}/\passthrough{\lstinline!TourOverlay!}/\passthrough{\lstinline!tourSteps!}，Esc 可跳过并写 \passthrough{\lstinline!localStorage!}）；\passthrough{\lstinline!features/<域>!} 7 域（capture/plan/cook/dashboard/stats/report/stream，单域 3--38 个文件），纯函数抽 \passthrough{\lstinline!*.ts!}、hook ≤200 行；\passthrough{\lstinline!lib/api!} 类型集中 \passthrough{\lstinline!types*.ts!}。
+组件：\passthrough{\lstinline!components/ui!} 21 个无业务原子（Button\sbrk Card\sbrk Notice\sbrk Skeleton\sbrk EmptyState\sbrk ConfidenceBar\sbrk CitationChip\sbrk AgentTrace\sbrk StreamProgress\ldots）；\passthrough{\lstinline!layout!} 8 个（含导航表 \passthrough{\lstinline!nav.ts!}）；\passthrough{\lstinline!tour!} 新手引导 3 个（\passthrough{\lstinline!TourProvider!}/\passthrough{\lstinline!TourOverlay!}/\passthrough{\lstinline!tourSteps!}，Esc 可跳过并写 \passthrough{\lstinline!localStorage!}）；\passthrough{\lstinline!features/<域>!} 7 域（capture\sbrk plan\sbrk cook\sbrk dashboard\sbrk stats\sbrk report\sbrk stream，单域 3--38 个文件），纯函数抽 \passthrough{\lstinline!*.ts!}、hook \ensuremath{\le}200 行；\passthrough{\lstinline!lib/api!} 类型集中 \passthrough{\lstinline!types*.ts!}。
 
-设计系统：手写 CSS 变量，不引 UI 库/Tailwind/图表库；颜色与分级对齐（urgent 红 0--1 天、soon 黄 2--3 天、fresh 绿 ≥4 天）；环图/趋势图手写 SVG 带 \passthrough{\lstinline!aria-label!}。收益：运行时依赖只有 3 个；代价：组件开发慢。
+设计系统：手写 CSS 变量，不引 UI 库/Tailwind/图表库；颜色与分级对齐（urgent 红 0--1 天、soon 黄 2--3 天、fresh 绿 \ensuremath{\ge}4 天）；环图/趋势图手写 SVG 带 \passthrough{\lstinline!aria-label!}。收益：运行时依赖只有 3 个；代价：组件开发慢。
 
 错误态：传输错误（\passthrough{\lstinline!network/timeout/http\_5xx!}）→ \passthrough{\lstinline!DemoBanner!} 说明「后端没应答，下面是内置样例」并标「演示数据」；401/403/413/422 → 专属文案；业务失败（有 \passthrough{\lstinline!code!}）→ 就地显示；渲染异常 → \passthrough{\lstinline!ErrorBoundary!}；加载/空数据 → \passthrough{\lstinline!Skeleton!}/\passthrough{\lstinline!EmptyState!} + 下一步按钮。为什么分传输与业务错误：前者后端没在，可退回样例；后者后端在但这次不行，必须如实报错。
 
 \section{测试与验证}
 
-110 项全绿（约 15--20 s）。分布：对账 21、改计划 14、库存 10、API 8、计划 8、偏好 8、推荐 7、备菜 7、RAG 6、分词 6、\textbf{流式 6}、小票 5、统计 4。\textbf{前端无自动化测试}，靠文末的人工验收清单。隔离：每用例独立 \passthrough{\lstinline!tmp\_path!} SQLite；种子指向临时空路径；\passthrough{\lstinline!FakeProvider!} 注入，不打真实模型。
+141 项全绿（110 项业务 + 31 项审查回归，约 16--20 s）。业务分布：对账 21、改计划 14、库存 10、API 8、计划 8、偏好 8、推荐 7、备菜 7、RAG 6、分词 6、\textbf{流式 6}、小票 5、统计 4；审查回归覆盖安全/限流、识别边界、工具签名、MCP、周报、对账、库存。\textbf{前端无自动化测试}，靠文末的人工验收清单。隔离：每用例独立 \passthrough{\lstinline!tmp\_path!} SQLite；种子指向临时空路径；\passthrough{\lstinline!FakeProvider!} 注入，不打真实模型。
 
-真实模型（\passthrough{\lstinline!zhipu!}/\passthrough{\lstinline!glm-4v-flash!}，\passthrough{\lstinline!CHANGELOG.md!} 2026-11-15）：冰箱实景一张返回 \textbf{4 项 / 4.98 s}；同批暴露 ①数量 null ②置信度虚高 1.0 ③三种返回姿势。复测 \passthrough{\lstinline!python scripts/probe\_vlm.py ../../samples/fridge-1.jpg!}（打印条数/耗时/置信度，不打印密钥）；素材 \passthrough{\lstinline!samples/!} 7 张自摄照片。其余耗时均为 mock 回放（零网络、确定性），不能当模型延迟指标。
+真实模型（\passthrough{\lstinline!zhipu!}/\passthrough{\lstinline!glm-4v-flash!}，\passthrough{\lstinline!CHANGELOG.md!} 2026-11-15）：冰箱实景一张返回 \textbf{4 项 / 4.98 s}；同批暴露 (1) 数量 null、(2) 置信度虚高 1.0、(3) 三种返回姿势。复测 \passthrough{\lstinline!python scripts/probe\_vlm.py ../../samples/fridge-1.jpg!}（打印条数/耗时/置信度，不打印密钥）；素材 \passthrough{\lstinline!samples/!} 7 张自摄照片。其余耗时均为 mock 回放（零网络、确定性），不能当模型延迟指标。
 
 mock 复跑（每条按各自初始状态单独执行：计划/改计划用同一份 seed，对账在另一份 seed 上做，互不叠加；\passthrough{\lstinline!python scripts/seed\_demo.py --reset!} → 28 条记录、在库 8 条：菠菜过期 1 天、生菜明天到期、北豆腐 2 天、番茄/香菇 3 天、牛奶 5 天、鸡蛋 20 天、鸡胸肉 60 天。下表计划行是\textbf{未学偏好}时的状态；学了「不吃鸡蛋」后会变成 \passthrough{\lstinline!5/3/1!}、采购 11 项------这是规则真的在生效，不是数字漂移）：
 
@@ -308,7 +308,7 @@ mock 复跑（每条按各自初始状态单独执行：计划/改计划用同�
 \endlastfoot
 \passthrough{\lstinline!POST /api/plan/meals \{days:3\}!} & 6 餐；\passthrough{\lstinline!coverage \{used\_items:5, expiring\_used:2, unused\_expiring:2\}!}；采购 6 项；5 条 warnings & 80--130 ms \\
 \passthrough{\lstinline!POST …/\{id\}/revise!}「第二天清淡点，别放鸡蛋」 & changed 4 处（带 from/to/reason）；learned 2 条（不吃鸡蛋 0.80 / 口味清淡 0.65） & 180--300 ms \\
-\passthrough{\lstinline!POST /api/recipes/suggest!} / \passthrough{\lstinline!cook/sequence!}（r\_006+r\_002） & 3 条推荐 + 引用原文；备菜 9 步 / 23 分钟 / 3 条 tips（mock 走规则版） & ≈30 / ≈6 ms \\
+\passthrough{\lstinline!POST /api/recipes/suggest!} / \passthrough{\lstinline!cook/sequence!}（r\_006+r\_002） & 3 条推荐 + 引用原文；备菜 9 步 / 23 分钟 / 3 条 tips（mock 走规则版） & \ensuremath{\approx}30 / \ensuremath{\approx}6 ms \\
 \passthrough{\lstinline!POST /api/inventory/reconcile!} → \passthrough{\lstinline!apply!} & missing 4 / reduced 0 / added 3 / suspect 1；apply \passthrough{\lstinline!\{discarded:4\}!}、\passthrough{\lstinline!verified:4!} & 50--60 ms \\
 \passthrough{\lstinline!GET /api/stats/summary?range=30d!}；\passthrough{\lstinline!POST /api/report/weekly!} & 浪费率 0.163（1650÷10120 g）、吃掉 8470 g、碳 48.05 kg、省 114.37 元、car 351 km、trees 1096 天；周报首帧约 40 ms，mock 逐字回放 44 个事件约 1.3 s & --- \\
 \end{longtable}

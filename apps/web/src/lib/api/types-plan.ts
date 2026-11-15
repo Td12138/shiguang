@@ -8,8 +8,10 @@ export interface PlanChange {
   /** YYYY-MM-DD，与 meals[].date 一致 */
   date: string;
   slot: string;
-  from: string;
-  to: string;
+  /** 原菜名；新增餐次时为 null（后端 plan.py 会返回 null） */
+  from: string | null;
+  /** 新菜名；只删不补时为 null */
+  to: string | null;
   reason: string;
 }
 

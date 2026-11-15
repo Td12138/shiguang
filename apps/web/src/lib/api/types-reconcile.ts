@@ -29,7 +29,8 @@ export interface ReconcileAdded {
 }
 
 export interface ReconcileSuspect {
-  inventory_id: string;
+  /** 可能是 null：识别到看不出来源的新东西时，后端没有可对应的库存 id */
+  inventory_id: string | null;
   name: string;
   reason: string;
 }
@@ -66,6 +67,12 @@ export interface ApplyAdded {
 }
 
 export interface ReconcileApplyRequest {
+  /** 幂等键：一次对账会话一个，重试复用（后端 reconcile_applied 台账按它去重） */
+  request_id?: string;
+  /** 识别阶段的图片 id，便于后端把核验与图片对上 */
+  image_id?: string;
+  /** 识别时的小票/核验时间 */
+  checked_at?: string;
   missing: ApplyMissing[];
   reduced: ApplyReduced[];
   added: ApplyAdded[];
@@ -79,7 +86,14 @@ export interface ReconcileApplied {
 }
 
 export interface ReconcileApplyResult {
+  /** 后端回的幂等键（与请求一致或服务端生成） */
+  request_id?: string;
+  checked_at?: string;
   applied: ReconcileApplied;
+  /** 因状态变化被跳过的条数（如已被别处扣减） */
+  skipped?: number;
+  /** 本次盖了 verified_at 的库存行数 */
+  verified?: number;
   warnings: string[];
 }
 

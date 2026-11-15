@@ -97,3 +97,23 @@ export function isTransportError(err: unknown): boolean {
   if (err.code === 'network' || err.code === 'timeout') return true;
   return err.code.startsWith('http_5');
 }
+
+/** 把 ApiError 翻成用户能看懂的一句话：401/413/422 各有专属说法，其余直接用后端 message */
+export function describeApiError(err: unknown): string {
+  if (!(err instanceof ApiError)) {
+    return err instanceof Error ? err.message : '请求失败，请稍后重试';
+  }
+  const detail = err.detail ? `（${err.detail}）` : '';
+  switch (err.status) {
+    case 401:
+      return '演示站需要登录后才能继续（401）';
+    case 403:
+      return '没有权限执行这个操作（403）';
+    case 413:
+      return `图片超过服务端上限，请压缩后重试（413）：${err.message}`;
+    case 422:
+      return `请求参数有问题（422）：${err.message}${detail}`;
+    default:
+      return `${err.message}${detail}`;
+  }
+}

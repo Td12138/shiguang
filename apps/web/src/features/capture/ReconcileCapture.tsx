@@ -8,6 +8,7 @@ import { Notice } from '@/components/ui/Notice';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 import { formatDateTime } from '@/lib/format';
+import { MAX_UPLOAD_LABEL } from '@/lib/upload';
 import { Dropzone } from './Dropzone';
 import { ManualRowsEditor } from './ManualRowsEditor';
 import { ReconcileMissingGroup } from './ReconcileMissingGroup';
@@ -69,7 +70,7 @@ export function ReconcileCapture() {
             disabled={busy}
             previewUrl={reconcile.previewUrl}
             title="拖一张冰箱内部照片到这里，或点击选择"
-            hint="支持 JPG / PNG / WEBP，单张 ≤ 15MB；默认全部保留，任何删除都需要你亲手确认"
+            hint={`支持 JPG / PNG / WEBP，单张 ≤ ${MAX_UPLOAD_LABEL}；默认全部保留，任何删除都需要你亲手确认`}
           />
         </Card>
       ) : null}

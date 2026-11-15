@@ -77,7 +77,7 @@ export default function CookPage() {
       {cook.error ? (
         <Notice
           tone="error"
-          title="生成建议失败"
+          title="请求没有成功"
           action={
             <Button variant="secondary" size="sm" onClick={() => void handleSuggest()}>
               重试

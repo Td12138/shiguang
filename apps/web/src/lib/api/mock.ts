@@ -12,6 +12,7 @@ import {
   suggestRecipes,
 } from './client';
 import { createMealPlan, listPreferences } from './client-plan';
+import { ApiError, isTransportError } from './http';
 import { MOCK_AGENT_RUN, MOCK_INVENTORY } from './fixtures';
 import { MOCK_PLAN } from './fixtures-plan';
 import { MOCK_PREFERENCES } from './fixtures-preferences';
@@ -36,14 +37,25 @@ export { MOCK_RECEIPT } from './fixtures-receipt';
 export { MOCK_RECONCILE } from './fixtures-reconcile';
 export { MOCK_STATS, MOCK_SUGGESTION } from './fixtures-recipes';
 
-/** 真实请求失败 → 回落 mock，并标记 demo；成功路径原样返回 */
+/** 真实请求失败 → 是否允许回落样例：只有传输层失败或 5xx */
+export function canFallbackToDemo(err: unknown): boolean {
+  if (isTransportError(err)) return true;
+  return err instanceof ApiError && err.status >= 500;
+}
+
+/**
+ * 请求失败时的降级：
+ * - 传输层失败 / 5xx → 返回样例并标记 demo（页面显示「演示数据」）
+ * - 其它 4xx（401/413/422…）→ 原样抛出，由调用方展示真实原因，不再冒充演示数据
+ */
 export async function withDemoFallback<T>(
   call: () => Promise<T>,
   fallback: () => T,
 ): Promise<Sourced<T>> {
   try {
     return { data: await call(), demo: false };
-  } catch {
+  } catch (err) {
+    if (!canFallbackToDemo(err)) throw err;
     return { data: fallback(), demo: true };
   }
 }
@@ -68,10 +80,11 @@ export function loadSuggestion(
   );
 }
 
-/** runId 为空（演示数据）或请求失败时，都回落样例步骤 */
+/** runId 为空（演示数据）直接给样例；有 id 时按传输失败/5xx 规则回落 */
 export function loadAgentRun(runId: string | null): Promise<Sourced<AgentRun>> {
+  if (!runId) return Promise.resolve({ data: MOCK_AGENT_RUN, demo: true });
   return withDemoFallback<AgentRun>(
-    () => (runId ? getAgentRun(runId) : Promise.reject(new Error('缺少 run_id'))),
+    () => getAgentRun(runId),
     () => MOCK_AGENT_RUN,
   );
 }

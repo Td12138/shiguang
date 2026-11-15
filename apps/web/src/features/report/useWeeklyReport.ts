@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ApiError, loadStats, streamWeeklyReport } from '@/lib/api';
+import { describeApiError, loadStats, streamWeeklyReport } from '@/lib/api';
 import type { Citation, StatsSummary } from '@/lib/api';
 
 /** 周报区间固定 30 天（契约 §6.6 无参数，服务端默认区间） */
@@ -42,11 +42,17 @@ export function useWeeklyReport(): WeeklyReportState {
       });
       setStatus((previous) => (previous === 'streaming' ? 'done' : previous));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : '周报生成失败，请稍后重试');
+      setError(describeApiError(err));
       setStatus('error');
-      const summary = await loadStats(REPORT_RANGE);
-      setFallback(summary.data);
-      setFallbackDemo(summary.demo);
+      try {
+        const summary = await loadStats(REPORT_RANGE);
+        setFallback(summary.data);
+        setFallbackDemo(summary.demo);
+      } catch {
+        // 连兜底统计都取不到：保留错误提示，不硬凑数字
+        setFallback(null);
+        setFallbackDemo(false);
+      }
     }
   }, []);
 

@@ -13,6 +13,7 @@ import { ReceiptMeta } from './ReceiptMeta';
 import { ReceiptTable } from './ReceiptTable';
 import { SuccessPanel } from './SuccessPanel';
 import { useReceipt } from './useReceipt';
+import { MAX_UPLOAD_LABEL } from '@/lib/upload';
 import styles from './ReceiptCapture.module.css';
 
 /** 「拍小票」流程：上传 → 核对（含单价、可手动补）→ 带入购物日期入库 */
@@ -86,7 +87,7 @@ export function ReceiptCapture() {
             disabled={busy}
             previewUrl={receipt.previewUrl}
             title="拖一张小票到这里，或点击选择"
-            hint="支持 JPG / PNG / WEBP，单张 ≤ 15MB；价格认不出会显示「—」，不会编造"
+            hint={`支持 JPG / PNG / WEBP，单张 ≤ ${MAX_UPLOAD_LABEL}；价格认不出会显示「—」，不会编造`}
           />
         </Card>
       ) : null}

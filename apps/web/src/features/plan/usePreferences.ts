@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ApiError,
-  MOCK_PREFERENCES,
   createPreference,
   deletePreference,
-  listPreferences,
+  describeApiError,
+  loadPreferences,
 } from '@/lib/api';
 import type { Preference, PreferenceKind } from '@/lib/api';
 
@@ -22,10 +21,6 @@ export interface PreferencesState {
   remove: (id: string) => Promise<boolean>;
 }
 
-function messageOf(err: unknown, fallback: string): string {
-  return err instanceof ApiError ? err.message : fallback;
-}
-
 export function usePreferences(): PreferencesState {
   const [items, setItems] = useState<Preference[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,13 +33,14 @@ export function usePreferences(): PreferencesState {
     setLoading(true);
     setError(null);
     try {
-      const result = await listPreferences();
-      setItems(result.items);
+      // loadPreferences 只在传输失败/5xx 时回样例；4xx 会抛出来如实提示
+      const result = await loadPreferences();
+      setItems(result.data.items);
+      setDemo(result.demo);
+    } catch (err) {
+      setItems([]);
       setDemo(false);
-    } catch {
-      // 读失败才回样例；写操作永远走真实接口，避免假装成功
-      setItems(MOCK_PREFERENCES.items);
-      setDemo(true);
+      setError(describeApiError(err));
     } finally {
       setLoading(false);
     }
@@ -62,7 +58,7 @@ export function usePreferences(): PreferencesState {
       setItems((previous) => [...previous, created]);
       return true;
     } catch (err) {
-      setError(messageOf(err, '添加偏好失败'));
+      setError(describeApiError(err));
       return false;
     } finally {
       setAdding(false);
@@ -77,7 +73,7 @@ export function usePreferences(): PreferencesState {
       setItems((previous) => previous.filter((item) => item.id !== id));
       return true;
     } catch (err) {
-      setError(messageOf(err, '删除偏好失败'));
+      setError(describeApiError(err));
       return false;
     } finally {
       setRemovingId(null);

@@ -1,4 +1,5 @@
 import { useRef, useState, type ChangeEvent, type DragEvent } from 'react';
+import { MAX_UPLOAD_LABEL } from '@/lib/upload';
 import styles from './Dropzone.module.css';
 
 /** 与服务端 EXT_BY_MIME 对齐 */
@@ -75,7 +76,7 @@ export function Dropzone({
           {disabled ? '正在识别…' : (title ?? '拖一张冰箱照片到这里，或点击选择')}
         </span>
         <span className={styles.hint}>
-          {hint ?? '支持 JPG / PNG / WEBP，单张 ≤ 15MB；识别结果需人工确认后才入库'}
+          {hint ?? `支持 JPG / PNG / WEBP，单张 ≤ ${MAX_UPLOAD_LABEL}；识别结果需人工确认后才入库`}
         </span>
       </label>
     </div>

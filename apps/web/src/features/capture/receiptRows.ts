@@ -1,5 +1,4 @@
 /** 小票校对行的类型与纯函数（放这里让 useReceipt 保持在 200 行内） */
-import { ApiError } from '@/lib/api';
 import type { CreateInventoryItemInput, ReceiptResult } from '@/lib/api';
 import { parsePositiveQty, qtyError } from '@/lib/qty';
 
@@ -61,10 +60,6 @@ export function rowQtyErrors(rows: ReceiptRow[]): Record<string, string> {
 
 export function countNeedConfirm(rows: ReceiptRow[]): number {
   return rows.filter((row) => row.confidence < LOW_CONFIDENCE || !row.matched).length;
-}
-
-export function messageOf(err: unknown, fallback: string): string {
-  return err instanceof ApiError ? err.message : fallback;
 }
 
 /** 只有「后端根本没应答」才回退演示样例；业务错误必须显式提示 */

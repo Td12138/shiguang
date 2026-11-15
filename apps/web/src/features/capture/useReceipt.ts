@@ -1,18 +1,15 @@
 import { useCallback, useMemo, useState } from 'react';
-import { MOCK_RECEIPT, createInventory, recognizeReceipt } from '@/lib/api';
+import { MOCK_RECEIPT, createInventory, describeApiError, recognizeReceipt } from '@/lib/api';
 import {
   countNeedConfirm,
   isOffline,
-  messageOf,
   rowQtyErrors,
   toInventoryItems,
   toRows,
   type ReceiptRow,
 } from './receiptRows';
 import { useManualRows, type ManualRowsState } from './useManualRows';
-
-/** 服务端小票识别上限 */
-const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
+import { uploadSizeError } from '@/lib/upload';
 
 export type ReceiptStage = 'idle' | 'uploading' | 'review' | 'submitting' | 'done';
 
@@ -63,8 +60,9 @@ export function useReceipt(): ReceiptState {
   const invalid = Object.keys(rowErrors).length > 0 || manual.invalid;
 
   const upload = useCallback(async (file: File): Promise<void> => {
-    if (file.size > MAX_UPLOAD_BYTES) {
-      setError('图片超过 15MB，请压缩后再传');
+    const sizeError = uploadSizeError(file);
+    if (sizeError) {
+      setError(sizeError);
       return;
     }
     setError(null);
@@ -101,7 +99,7 @@ export function useReceipt(): ReceiptState {
         setStage('review');
         return;
       }
-      setError(messageOf(err, '小票识别失败，请稍后重试'));
+      setError(describeApiError(err));
       setStage('idle');
     }
   }, []);
@@ -140,7 +138,7 @@ export function useReceipt(): ReceiptState {
       setStage('done');
       return true;
     } catch (err) {
-      setSubmitError(messageOf(err, '入库失败，请稍后重试'));
+      setSubmitError(describeApiError(err));
       setStage('review');
       return false;
     }

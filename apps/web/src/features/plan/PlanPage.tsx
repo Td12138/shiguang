@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ApiError, deletePreference } from '@/lib/api';
+import { deletePreference, describeApiError } from '@/lib/api';
 import type { LearnedPreference } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -34,7 +34,7 @@ export default function PlanPage() {
       await deletePreference(preference.id);
       toast(`已撤销：${preference.text}`, 'info');
     } catch (err) {
-      toast(err instanceof ApiError ? err.message : '撤销失败，可在「我的偏好」里手动删除', 'error');
+      toast(describeApiError(err), 'error');
     }
   };
 

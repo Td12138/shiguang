@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { ApiError, applyReconcile, loadReconcile } from '@/lib/api';
+import { applyReconcile, describeApiError, loadReconcile } from '@/lib/api';
 import type { DiscardReason, MissingAction, ReconcileApplied, ReconcileResult } from '@/lib/api';
 import {
   DEFAULT_REASON,
@@ -10,17 +10,12 @@ import {
   type MissingChoice,
 } from './reconcileModel';
 import { useManualRows } from './useManualRows';
+import { newRequestId } from '@/lib/id';
+import { uploadSizeError } from '@/lib/upload';
 import type { ReconcileState, ReconcileStage } from './reconcileTypes';
 
 export type { MissingChoice, ReconcileSummary } from './reconcileModel';
 export type { ReconcileStage, ReconcileState } from './reconcileTypes';
-
-/** 服务端上传上限 */
-const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
-
-function messageOf(err: unknown, fallback: string): string {
-  return err instanceof ApiError ? err.message : fallback;
-}
 
 export function useReconcile(): ReconcileState {
   const [stage, setStage] = useState<ReconcileStage>('idle');
@@ -33,6 +28,7 @@ export function useReconcile(): ReconcileState {
   const [choices, setChoices] = useState<Record<string, MissingChoice>>({});
   const [reducedQty, setReducedQtyState] = useState<Record<string, string>>({});
   const [addedPicked, setAddedPicked] = useState<Record<string, boolean>>({});
+  const [requestId, setRequestId] = useState<string | null>(null);
   const manual = useManualRows();
 
   const resetChoices = useCallback((): void => {
@@ -44,12 +40,14 @@ export function useReconcile(): ReconcileState {
   const resetAll = useCallback((): void => {
     resetChoices();
     manual.reset();
+    setRequestId(null); // 幂等键失效：下一轮对账重新生成
   }, [resetChoices, manual.reset]);
 
   const upload = useCallback(
     async (file: File): Promise<void> => {
-      if (file.size > MAX_UPLOAD_BYTES) {
-        setError('图片超过 15MB，请压缩后再传');
+      const sizeError = uploadSizeError(file);
+      if (sizeError) {
+        setError(sizeError);
         return;
       }
       setStage('uploading');
@@ -65,10 +63,19 @@ export function useReconcile(): ReconcileState {
         return URL.createObjectURL(file);
       });
 
-      const response = await loadReconcile(file);
-      setResult(response.data);
-      setDemo(response.demo);
-      setStage('review');
+      try {
+        const response = await loadReconcile(file);
+        setResult(response.data);
+        setDemo(response.demo);
+        // 识别成功即开启一次新的对账会话：apply 的幂等键在这里生成
+        setRequestId(newRequestId());
+        setStage('review');
+      } catch (err) {
+        setResult(null);
+        setDemo(false);
+        setError(describeApiError(err));
+        setStage('idle');
+      }
     },
     [resetAll],
   );
@@ -118,11 +125,21 @@ export function useReconcile(): ReconcileState {
       setApplyError('有数量不合法：改成大于 0 的数字（可用 0.5）再应用');
       return false;
     }
-    const payload = buildApplyPayload(result, choices, reducedQty, addedPicked, manual.items);
-    if (payloadSize(payload) === 0) {
+    const base = buildApplyPayload(result, choices, reducedQty, addedPicked, manual.items);
+    if (payloadSize(base) === 0) {
       setApplyError('没有需要应用的改动：默认全部保留，只有你亲手标记的才会被改');
       return false;
     }
+
+    // 重试必须复用同一个 id，否则会真的重复落库
+    const id = requestId ?? newRequestId();
+    if (!requestId) setRequestId(id);
+    const payload = {
+      ...base,
+      request_id: id,
+      ...(result?.image_id ? { image_id: result.image_id } : {}),
+      ...(result?.checked_at ? { checked_at: result.checked_at } : {}),
+    };
 
     setStage('applying');
     setApplyError(null);
@@ -134,11 +151,11 @@ export function useReconcile(): ReconcileState {
       return true;
     } catch (err) {
       // 失败保留用户当前选择，只提示原因
-      setApplyError(messageOf(err, '应用失败，请稍后重试'));
+      setApplyError(describeApiError(err));
       setStage('review');
       return false;
     }
-  }, [result, choices, reducedQty, addedPicked, manual.items, invalid, resetAll]);
+  }, [result, choices, reducedQty, addedPicked, manual.items, invalid, resetAll, requestId]);
 
   const reset = useCallback((): void => {
     setStage('idle');

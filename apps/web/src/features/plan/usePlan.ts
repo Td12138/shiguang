@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ApiError, loadInventory as fetchInventory, loadPlan, reviseMealPlan } from '@/lib/api';
+import {
+  describeApiError,
+  loadInventory as fetchInventory,
+  loadPlan,
+  reviseMealPlan,
+} from '@/lib/api';
 import type { InventoryItem, LearnedPreference, MealPlan, PlanChange } from '@/lib/api';
 import type { PlanDiffState } from './PlanDiff';
 
@@ -49,10 +54,6 @@ export interface PlanState {
   dismissDiff: () => void;
 }
 
-function messageOf(err: unknown, fallback: string): string {
-  return err instanceof ApiError ? err.message : fallback;
-}
-
 export function usePlan(): PlanState {
   const [days, setDays] = useState<DaysValue>(DEFAULT_DAYS);
   const [minutes, setMinutes] = useState<MinutesValue>(DEFAULT_MINUTES);
@@ -92,7 +93,7 @@ export function usePlan(): PlanState {
       setDemo((previous) => previous || result.demo);
       await loadInventory();
     } catch (err) {
-      setError(messageOf(err, '生成饮食计划失败，请稍后重试'));
+      setError(describeApiError(err));
     } finally {
       setLoading(false);
     }
@@ -120,7 +121,7 @@ export function usePlan(): PlanState {
         setDiff({ changed: revised.changed, warnings: revised.warnings });
         return { ok: true, changed: revised.changed, learned: revised.learned };
       } catch (err) {
-        const message = messageOf(err, '调整失败，请稍后重试');
+        const message = describeApiError(err);
         // 保留原计划，只提示失败原因
         setReviseError(message);
         return { ok: false, changed: [], learned: [], message };

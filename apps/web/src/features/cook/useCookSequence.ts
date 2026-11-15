@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ApiError, createCookSequence } from '@/lib/api';
+import { createCookSequence, describeApiError } from '@/lib/api';
 import type { CookSequence } from '@/lib/api';
 import { nowHhMm } from '@/lib/format';
 
@@ -57,7 +57,7 @@ export function useCookSequence(): CookSequenceState {
       setSequence(result);
       return true;
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : '生成备菜时间轴失败，请稍后重试');
+      setError(describeApiError(err));
       return false;
     } finally {
       setLoading(false);

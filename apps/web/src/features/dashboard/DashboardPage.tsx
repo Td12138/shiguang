@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { DemoBanner } from '@/components/ui/DemoBanner';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Notice } from '@/components/ui/Notice';
 import { countStale } from '@/lib/freshness';
 import { DashboardSkeleton } from './DashboardSkeleton';
 import { FridgeOverview } from './FridgeOverview';
@@ -14,7 +15,7 @@ import { useDashboard } from './useDashboard';
 import styles from './DashboardPage.module.css';
 
 export default function DashboardPage() {
-  const { inventory, suggestion, loading, demo, reload } = useDashboard();
+  const { inventory, suggestion, loading, demo, error, reload } = useDashboard();
   const navigate = useNavigate();
 
   const expiring = useMemo(() => pickExpiring(inventory), [inventory]);
@@ -25,6 +26,24 @@ export default function DashboardPage() {
     return (
       <div className="page-stack">
         <DashboardSkeleton />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="page-stack">
+        <Notice
+          tone="error"
+          title="库存读取失败"
+          action={
+            <Button variant="secondary" size="sm" onClick={() => void reload()}>
+              重试
+            </Button>
+          }
+        >
+          {error}
+        </Notice>
       </div>
     );
   }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { loadStats } from '@/lib/api';
+import { describeApiError, loadStats } from '@/lib/api';
 import type { StatsSummary } from '@/lib/api';
 
 export const RANGE_OPTIONS = [
@@ -36,9 +36,11 @@ export function useStats(): StatsState {
       const result = await loadStats(value);
       setData(result.data);
       setDemo(result.demo);
-    } catch {
-      // loadStats 内部已回落 mock；走到这里说明连样例都不可用
-      setError('统计接口不可用，且没有可用的本地样例');
+    } catch (err) {
+      // loadStats 只在传输失败/5xx 回落样例；4xx 会抛出来如实提示
+      setData(null);
+      setDemo(false);
+      setError(describeApiError(err));
     } finally {
       setLoading(false);
     }

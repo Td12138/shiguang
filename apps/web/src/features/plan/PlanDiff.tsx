@@ -10,6 +10,16 @@ export interface PlanDiffState {
   warnings: string[];
 }
 
+const NO_CHANGE_PREFIXES = ['没能换成', '这次没能改'] as const;
+
+/** 没改动时优先取后端专门说明「为什么没换成」的那条，别被降级/临期提示抢走 */
+function noChangeReason(warnings: string[]): string {
+  const hit = warnings.find((warning) =>
+    NO_CHANGE_PREFIXES.some((prefix) => warning.startsWith(prefix)),
+  );
+  return hit ?? '计划未改动';
+}
+
 export interface PlanDiffProps {
   diff: PlanDiffState | null;
   onDismiss: () => void;
@@ -19,7 +29,7 @@ export interface PlanDiffProps {
 export function PlanDiff({ diff, onDismiss }: PlanDiffProps) {
   if (!diff) return null;
 
-  const reason = diff.warnings[0] ?? '后端没有说明原因';
+  const reason = noChangeReason(diff.warnings);
   const extraWarnings = diff.changed.length > 0 ? diff.warnings : [];
 
   return (
@@ -43,11 +53,11 @@ export function PlanDiff({ diff, onDismiss }: PlanDiffProps) {
               <span className={styles.when}>
                 {dayLabel(change.date)} · {change.slot}
               </span>
-              <span className={styles.from}>{change.from}</span>
+              <span className={styles.from}>{change.from ?? '（原无此项）'}</span>
               <span className={styles.arrow} aria-hidden="true">
                 →
               </span>
-              <span className={styles.to}>{change.to}</span>
+              <span className={styles.to}>{change.to ?? '（已移除）'}</span>
               <span className={styles.reason}>{change.reason}</span>
             </li>
           ))}

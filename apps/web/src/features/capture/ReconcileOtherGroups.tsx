@@ -145,8 +145,8 @@ export function ReconcileSuspectGroup({ items }: ReconcileSuspectGroupProps) {
       tone="default"
     >
       <ul className={styles.list}>
-        {items.map((item) => (
-          <li key={item.inventory_id} className={styles.suspectRow}>
+        {items.map((item, index) => (
+          <li key={`${item.name}-${item.reason}-${index}`} className={styles.suspectRow}>
             <strong className={styles.name}>{item.name}</strong>
             <span className={styles.suspectReason}>{item.reason}</span>
           </li>

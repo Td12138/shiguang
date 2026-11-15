@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ApiError, consumeInventory, loadInventory as fetchInventory, loadSuggestion } from '@/lib/api';
+import {
+  consumeInventory,
+  describeApiError,
+  loadInventory as fetchInventory,
+  loadSuggestion,
+} from '@/lib/api';
 import type { InventoryItem, RecipeRecommendation, SuggestResponse } from '@/lib/api';
 import type { ConsumeLine } from './consume';
 
@@ -34,10 +39,6 @@ export interface CookState {
   reset: () => void;
 }
 
-function messageOf(err: unknown, fallback: string): string {
-  return err instanceof ApiError ? err.message : fallback;
-}
-
 export function useCook(): CookState {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,19 +52,28 @@ export function useCook(): CookState {
 
   const refresh = useCallback(async (keepSelection: boolean): Promise<void> => {
     setLoading(true);
-    const result = await fetchInventory('active');
-    setInventory(result.data);
-    setDemo(result.demo);
-    setSelected((previous) => {
-      if (keepSelection) {
-        const alive = previous.filter((id) => result.data.some((item) => item.id === id));
-        return alive.length > 0 ? alive : result.data.filter((item) => item.days_left <= URGENT_DAYS).map((item) => item.id);
-      }
-      return result.data
-        .filter((item) => item.days_left <= URGENT_DAYS)
-        .map((item) => item.id);
-    });
-    setLoading(false);
+    try {
+      const result = await fetchInventory('active');
+      setInventory(result.data);
+      setDemo(result.demo);
+      setSelected((previous) => {
+        if (keepSelection) {
+          const alive = previous.filter((id) => result.data.some((item) => item.id === id));
+          return alive.length > 0
+            ? alive
+            : result.data.filter((item) => item.days_left <= URGENT_DAYS).map((item) => item.id);
+        }
+        return result.data
+          .filter((item) => item.days_left <= URGENT_DAYS)
+          .map((item) => item.id);
+      });
+    } catch (err) {
+      setInventory([]);
+      setDemo(false);
+      setError(describeApiError(err));
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -92,7 +102,7 @@ export function useCook(): CookState {
       setSuggestion(result.data);
       setDemo((previous) => previous || result.demo);
     } catch (err) {
-      setError(messageOf(err, '生成建议失败，请稍后重试'));
+      setError(describeApiError(err));
     } finally {
       setSuggesting(false);
     }
@@ -124,7 +134,7 @@ export function useCook(): CookState {
         return {
           ok: false,
           consumed,
-          message: messageOf(err, '扣减库存失败，请稍后重试'),
+          message: describeApiError(err),
         };
       } finally {
         setConsuming(false);

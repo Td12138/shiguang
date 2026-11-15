@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { loadAgentRun } from '@/lib/api';
+import { describeApiError, loadAgentRun } from '@/lib/api';
 import type { AgentRun } from '@/lib/api';
 import { AgentTrace } from './AgentTrace';
 import { Button } from './Button';
@@ -21,6 +21,7 @@ export function AgentTracePanel({
   const [run, setRun] = useState<AgentRun | null>(null);
   const [loading, setLoading] = useState(false);
   const [demo, setDemo] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const toggle = async (): Promise<void> => {
     if (open) {
@@ -30,10 +31,17 @@ export function AgentTracePanel({
     setOpen(true);
     if (run) return;
     setLoading(true);
-    const result = await loadAgentRun(runId ?? null);
-    setRun(result.data);
-    setDemo(result.demo);
-    setLoading(false);
+    setError(null);
+    try {
+      const result = await loadAgentRun(runId ?? null);
+      setRun(result.data);
+      setDemo(result.demo);
+    } catch (err) {
+      // 4xx（如 run 不存在 / 需要登录）如实展示，不再当样例
+      setError(describeApiError(err));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -50,7 +58,7 @@ export function AgentTracePanel({
       {open ? (
         <div id="agent-trace-body" className={styles.body}>
           {demo ? <p className={styles.note}>{demoHint}</p> : null}
-          <AgentTrace run={run} loading={loading} />
+          <AgentTrace run={run} loading={loading} error={error} />
         </div>
       ) : null}
     </div>

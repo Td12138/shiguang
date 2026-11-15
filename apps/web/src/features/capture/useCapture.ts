@@ -1,19 +1,13 @@
 import { useCallback, useMemo, useState } from 'react';
-import { ApiError, MOCK_RECOGNITION, createInventory, isTransportError, recognizeImage } from '@/lib/api';
+import { MOCK_RECOGNITION, createInventory, describeApiError, isTransportError, recognizeImage } from '@/lib/api';
 import type { CreateInventoryItemInput, RecognizedItem } from '@/lib/api';
 import { parsePositiveQty } from '@/lib/qty';
+import { uploadSizeError } from '@/lib/upload';
 import { countNeedConfirm, rowQtyError, toDraftRows, type DraftRow } from './captureRows';
 import { useManualRows } from './useManualRows';
 import type { CaptureStage, CaptureState } from './captureTypes';
 
-/** 服务端拍照识别上限 15MB，前端先挡一次 */
-const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
-
 export type { CaptureStage, CaptureState } from './captureTypes';
-
-function messageOf(err: unknown): string {
-  return err instanceof ApiError ? err.message : '入库失败，请稍后重试';
-}
 
 export function useCapture(): CaptureState {
   const [stage, setStage] = useState<CaptureStage>('idle');
@@ -40,8 +34,9 @@ export function useCapture(): CaptureState {
   const invalid = Object.keys(rowErrors).length > 0 || manual.invalid;
 
   const upload = useCallback(async (file: File): Promise<void> => {
-    if (file.size > MAX_UPLOAD_BYTES) {
-      setError('图片超过 15MB，请压缩后再传');
+    const sizeError = uploadSizeError(file);
+    if (sizeError) {
+      setError(sizeError);
       return;
     }
     setError(null);
@@ -76,7 +71,7 @@ export function useCapture(): CaptureState {
         applyRecognition(MOCK_RECOGNITION.items, MOCK_RECOGNITION.image_id, MOCK_RECOGNITION.warnings, true);
         return;
       }
-      setError(err instanceof ApiError ? err.message : '识别失败，请稍后重试');
+      setError(describeApiError(err));
       setStage('idle');
     }
   }, []);
@@ -126,7 +121,7 @@ export function useCapture(): CaptureState {
       setStage('done');
       return true;
     } catch (err) {
-      setSubmitError(messageOf(err));
+      setSubmitError(describeApiError(err));
       setStage('review');
       return false;
     }

@@ -83,6 +83,31 @@ def test_consume_all_marks_consumed(app_db, add_item):
     assert len(inv.list_inventory("consumed")) == 1
 
 
+def test_consume_updates_qty_proportionally(app_db, add_item):
+    """consume 不能只改 grams：qty 也要按克数比例扣，否则前端数量与克数对不上。"""
+    add_item("西兰花", avg_grams=300.0)
+    inv_id = inv.add_items({"items": [{"name": "西兰花", "qty": 2}]})["ids"][0]
+    assert inv.list_inventory("active")[0]["qty"] == pytest.approx(2.0)
+
+    result = inv.consume(inv_id, 150)  # 600g 吃 150g → 剩 450g / 1.5 颗
+    assert result["grams"] == pytest.approx(450.0)
+    assert result["qty"] == pytest.approx(1.5)
+    assert result["status"] == "active"
+
+    rest = inv.consume(inv_id)  # 全部吃完 → qty 归零
+    assert rest["status"] == "consumed"
+    assert rest["qty"] == pytest.approx(0.0)
+
+
+def test_list_inventory_includes_item_category(app_db, add_item):
+    add_item("西兰花", category="蔬菜")
+    inv_id = inv.add_items({"items": [{"name": "西兰花", "qty": 1}]})["ids"][0]
+
+    row = inv.list_inventory("active")[0]
+    assert row["category"] == "蔬菜"
+    assert inv.get_inventory(inv_id)["category"] == "蔬菜"
+
+
 def test_patch_qty_recomputes_grams(app_db, add_item):
     add_item("西兰花", avg_grams=300.0)
     inv_id = inv.add_items({"items": [{"name": "西兰花", "qty": 2}]})["ids"][0]

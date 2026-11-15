@@ -69,7 +69,18 @@ def test_pipeline_with_fake_provider(app_db, add_item, add_recipe, fake_provider
     assert rec["title"] == "蒜蓉西兰花"
     assert rec["minutes"] == 15
     assert rec["reason"]
-    assert rec["citations"] == [{"source": "recipe:r_broccoli", "locator": "步骤 1-4"}]
+    citation = rec["citations"][0]
+    assert citation["source"] == "recipe:r_broccoli"
+    assert citation["locator"] == "步骤 1-4"
+    assert "西兰花" in citation["text"], "引用要带原文摘录（前端角标弹原文）"
+    assert len(citation["text"]) <= 121
+    # uses 供前端直接扣库存
+    assert len(rec["uses"]) == 1
+    use = rec["uses"][0]
+    assert use["name"] == "西兰花"
+    assert use["qty"] == 1
+    assert use["unit"] == "颗"
+    assert use["inventory_id"].startswith("inv_")
     assert 0 <= rec["score"] <= 1
     assert [item["name"] for item in rec["missing"]] == ["大蒜"]
 

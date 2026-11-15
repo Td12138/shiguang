@@ -85,10 +85,31 @@ CREATE TABLE IF NOT EXISTS agent_runs (
     created_at  TEXT
 );
 
+-- 用户偏好（契约 §6.10）：avoid 硬约束，其余软约束；source=dialog|manual
+CREATE TABLE IF NOT EXISTS preferences (
+    id          TEXT PRIMARY KEY,
+    text        TEXT NOT NULL,
+    kind        TEXT,               -- avoid|like|time|portion|health
+    source      TEXT,               -- dialog|manual
+    confidence  REAL,
+    user_id     TEXT,
+    created_at  TEXT,
+    updated_at  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_preferences_kind ON preferences(kind);
+
+-- 饮食计划存档（契约 §6.9 / §6.10）：revise 要读回原计划
+CREATE TABLE IF NOT EXISTS meal_plans (
+    id          TEXT PRIMARY KEY,
+    payload     TEXT,               -- JSON：days/shopping/coverage/warnings/params
+    created_at  TEXT,
+    updated_at  TEXT
+);
+
 -- RAG 语料块（chunk）
 CREATE TABLE IF NOT EXISTS chunks (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    source      TEXT NOT NULL,      -- recipe:<id> / tip:<n>
+    source      TEXT NOT NULL,      -- recipe:<id> / tip:<n> / pref:<id>
     locator     TEXT NOT NULL,      -- 步骤 1-3 / 段落 2
     title       TEXT,
     body        TEXT,

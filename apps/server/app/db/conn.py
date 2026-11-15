@@ -23,6 +23,9 @@ DB_PATH_ENV = "SHIGUANG_DB_PATH"
 SCHEMA_FILE = Path(__file__).resolve().parent / "schema.sql"
 SQLITE_TIMEOUT_SECONDS = 30.0
 
+# 进程内已确认建表完成的库路径（init_db / ensure_schema 都维护它）
+_SCHEMA_READY: set[str] = set()
+
 
 def db_path() -> Path:
     """当前生效的数据库文件路径（每次读取环境变量，便于测试切换）。"""
@@ -65,10 +68,29 @@ def _remove_db_files() -> None:
             candidate.unlink()
 
 
+def ensure_schema() -> None:
+    """幂等建表（每个库路径每进程只跑一次）。
+
+    正常启动由 `init_db()` 建表；测试或不跑 lifespan 的场景（例如
+    `TestClient(app)` 直接发请求）由业务层调这里兜底，避免「老库缺新表」。
+    """
+    key = str(db_path())
+    if key in _SCHEMA_READY:
+        return
+    conn = get_conn()
+    try:
+        conn.executescript(SCHEMA_FILE.read_text(encoding="utf-8"))
+        conn.commit()
+    finally:
+        conn.close()
+    _SCHEMA_READY.add(key)
+
+
 def init_db(force: bool = False) -> None:
     """建表；items 为空时从 app/data 灌种子。force=True 会删库重建。"""
     if force:
         _remove_db_files()
+        _SCHEMA_READY.discard(str(db_path()))
 
     path = db_path()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -77,6 +99,7 @@ def init_db(force: bool = False) -> None:
     try:
         conn.executescript(SCHEMA_FILE.read_text(encoding="utf-8"))
         conn.commit()
+        _SCHEMA_READY.add(str(path))
         item_count = conn.execute("SELECT COUNT(*) FROM items").fetchone()[0]
     finally:
         conn.close()

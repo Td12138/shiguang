@@ -48,7 +48,10 @@ def test_inventory_crud(client, add_item):
     assert listed[0]["id"] == inv_id
     assert listed[0]["level"] == "fresh"
     assert listed[0]["grams"] == pytest.approx(600.0)
-    assert {"id", "name", "qty", "unit", "expires_at", "days_left", "level"} <= set(listed[0])
+    assert listed[0]["category"] == "蔬菜", "GET /api/inventory 要 JOIN items 带出分类"
+    assert {"id", "name", "qty", "unit", "expires_at", "days_left", "level", "category"} <= set(
+        listed[0]
+    )
 
     patched = client.patch(f"/api/inventory/{inv_id}", json={"qty": 1})
     assert patched.status_code == 200
@@ -215,6 +218,7 @@ def test_plan_meals_endpoint(client, add_item, add_recipe, monkeypatch):
     meal = body["days"][0]["meals"][0]
     assert meal["recipe_id"] == "r_broccoli"
     assert meal["citations"]
+    assert meal["citations"][0].get("text")
     assert {"slot", "recipe_id", "title", "minutes", "uses", "missing", "citations"} <= set(meal)
     assert set(body["coverage"]) == {"used_items", "expiring_used", "unused_expiring"}
     assert any("已降级" in warning for warning in body["warnings"])
@@ -222,6 +226,61 @@ def test_plan_meals_endpoint(client, add_item, add_recipe, monkeypatch):
     run = client.get(f"/api/agent/runs/{body['run_id']}").json()
     assert run["kind"] == "meal_plan"
     assert [step["name"] for step in run["steps"]] == ["understand", "plan", "allocate", "compose", "verify"]
+
+
+def test_plan_revise_endpoint(client, add_item, add_recipe, monkeypatch):
+    """§6.9 + §6.10：改计划返回 changed/learned，学到的偏好进 /api/preferences。"""
+    from app.domain import plan as plan_domain
+
+    add_item("鸡蛋", avg_grams=60.0, unit="个", shelf_life_days=10)
+    add_item("西兰花", avg_grams=300.0, shelf_life_days=5)
+    add_recipe(
+        "r_egg",
+        "西兰花炒鸡蛋",
+        ingredients=[
+            {"name": "西兰花", "qty": 1, "unit": "颗"},
+            {"name": "鸡蛋", "qty": 2, "unit": "个"},
+        ],
+        steps=["切小朵", "打蛋", "爆香", "同炒"],
+        minutes=10,
+    )
+    add_recipe(
+        "r_veg",
+        "清炒西兰花",
+        ingredients=[{"name": "西兰花", "qty": 1, "unit": "颗"}],
+        steps=["切小朵", "焯水", "清炒调味"],
+        minutes=8,
+    )
+    inv.add_items(
+        {"items": [{"name": "西兰花", "qty": 3}, {"name": "鸡蛋", "qty": 6}]}
+    )
+    monkeypatch.setattr(plan_domain, "resolve_provider", lambda provider=None: None)
+
+    created = client.post(
+        "/api/plan/meals", json={"days": 2, "servings": 1, "max_minutes": 30}
+    ).json()
+    assert created["days"]
+
+    response = client.post(
+        f"/api/plan/meals/{created['plan_id']}/revise",
+        json={"instruction": "不要鸡蛋"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert {"plan_id", "run_id", "days", "shopping", "coverage", "changed", "learned"} <= set(body)
+    used = {row["name"] for day in body["days"] for meal in day["meals"] for row in meal["uses"]}
+    assert "鸡蛋" not in used
+    assert body["learned"], "改成功后应学到「不吃鸡蛋」"
+
+    prefs = client.get("/api/preferences")
+    assert prefs.status_code == 200
+    assert any("鸡蛋" in row["text"] for row in prefs.json()["items"])
+
+    missing = client.post(
+        "/api/plan/meals/plan_nope/revise", json={"instruction": "清淡点"}
+    )
+    assert missing.status_code == 404
+    assert missing.json()["code"] == "plan_not_found"
 
 
 def test_capture_payload_too_large(client, monkeypatch):

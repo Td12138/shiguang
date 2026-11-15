@@ -75,6 +75,23 @@ def test_citation_helpers():
     assert citations.render(chunks, 2).count("\n") == 1
 
 
+def test_citation_includes_text_excerpt():
+    """引用要带原文摘录（≤120 字），前端角标直接弹原文。"""
+    body = "食材：西兰花。步骤：" + "洗菜切小朵" * 60
+    chunk = {"source": "recipe:r_1", "locator": "步骤 1-4", "body": body}
+
+    citation = citations.from_chunk(chunk)
+    assert citation["source"] == "recipe:r_1"
+    assert citation["locator"] == "步骤 1-4"
+    assert citation["text"].endswith(citations.ELLIPSIS)
+    assert len(citation["text"]) == citations.SNIPPET_CHARS + 1
+
+    short = citations.make("tip:1", "段落 1", "冷藏别洗")
+    assert short["text"] == "冷藏别洗"
+    # 无原文来源（如 stats:30d）不带 text 字段，避免前端弹空框
+    assert "text" not in citations.make("stats:30d", "区间汇总")
+
+
 def test_rrf_fusion_prefers_both_channels():
     keyword = [{"source": "recipe:1", "locator": "a", "title": "A"}]
     vector = [

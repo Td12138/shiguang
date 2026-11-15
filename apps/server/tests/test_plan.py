@@ -140,6 +140,7 @@ def test_meals_have_real_recipe_and_citations(app_db, add_item, add_recipe, no_l
         assert meal["recipe_id"] in known
         assert meal["citations"]
         assert meal["citations"][0]["source"].startswith("recipe:")
+        assert meal["citations"][0].get("text"), "引用要带原文摘录（前端角标弹原文）"
         assert meal["reason"]
 
     coverage = result["coverage"]
@@ -176,6 +177,34 @@ def test_degraded_path_still_valid(app_db, add_item, add_recipe, monkeypatch):
     assert meals, "降级也要产出计划"
     assert all(meal["citations"] for meal in meals)
     assert not any("校验仍有" in warning for warning in result["warnings"])
+
+
+def test_shopping_excludes_optional_only_ingredients(app_db, add_item, add_recipe, no_llm):
+    """采购清单只列必买（optional:false）；可选调味料只留在 meals[].missing 里。"""
+    add_item("西兰花", avg_grams=300.0)
+    add_recipe(
+        "r_light",
+        "清炒西兰花",
+        ingredients=[
+            {"name": "西兰花", "qty": 1, "unit": "颗", "optional": False},
+            {"name": "大蒜", "qty": 2, "unit": "瓣", "optional": True},
+            {"name": "蚝油", "qty": 1, "unit": "勺", "optional": True},
+        ],
+        steps=["切小朵", "爆香蒜末", "下锅翻炒", "淋蚝油"],
+        minutes=10,
+    )
+    inv.add_items({"items": [{"name": "西兰花", "qty": 1}]})
+
+    result = _run(plan.build_plan(days=1, servings=1, max_minutes=30, provider=None))
+
+    missing = [row for day in result["days"] for meal in day["meals"] for row in meal["missing"]]
+    assert any(row["name"] == "大蒜" and row["optional"] for row in missing)
+
+    names = [row["name"] for row in result["shopping"]]
+    assert "大蒜" not in names
+    assert "蚝油" not in names
+    assert all(row["optional"] is False for row in result["shopping"])
+    assert not any("没进购物清单" in warning for warning in result["warnings"])
 
 
 def test_empty_inventory_returns_empty_plan(app_db, no_llm):

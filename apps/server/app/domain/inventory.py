@@ -43,6 +43,14 @@ EVENT_CONSUME = "consume"
 DISCARD_REASONS = ("forgot", "spoiled", "too_much")
 EPSILON = 1e-6
 
+# 库存查询统一带上食材分类（前端「冰箱全景」分组用）：item_id 命不中时退回按名字匹配
+INVENTORY_SELECT = (
+    "SELECT i.*, COALESCE("
+    " (SELECT it.category FROM items it WHERE it.id = i.item_id),"
+    " (SELECT it2.category FROM items it2 WHERE it2.name = i.name LIMIT 1)"
+    ") AS category FROM inventory i"
+)
+
 
 def now_iso() -> str:
     return datetime.now().astimezone().isoformat(timespec="seconds")
@@ -121,7 +129,9 @@ def _row_to_dict(row) -> dict[str, Any]:
 
 
 def _fetch(conn, inv_id: str):
-    row = conn.execute("SELECT * FROM inventory WHERE id = ?", (inv_id,)).fetchone()
+    row = conn.execute(
+        f"{INVENTORY_SELECT} WHERE i.id = ?", (inv_id,)
+    ).fetchone()
     if row is None:
         raise AppError("inventory_not_found", f"库存记录不存在：{inv_id}", 404)
     return row
@@ -179,10 +189,10 @@ def list_inventory(status: str = STATUS_ACTIVE) -> list[dict]:
     try:
         if status and status != "all":
             rows = conn.execute(
-                "SELECT * FROM inventory WHERE status = ?", (status,)
+                f"{INVENTORY_SELECT} WHERE i.status = ?", (status,)
             ).fetchall()
         else:
-            rows = conn.execute("SELECT * FROM inventory").fetchall()
+            rows = conn.execute(INVENTORY_SELECT).fetchall()
     finally:
         conn.close()
 
@@ -253,8 +263,20 @@ def _consume_query(conn, row, grams: float | None) -> tuple[float, float, float,
     return take, remaining - take, carbon_kg, money
 
 
+def _qty_after(row, left_grams: float) -> float:
+    """按克数比例折算剩余数量（consume 只改 grams 会让 qty 与库存脱节）。"""
+    total_grams = float(row["grams"]) if row["grams"] is not None else 0.0
+    qty = float(row["qty"]) if row["qty"] is not None else 0.0
+    if left_grams <= EPSILON:
+        return 0.0
+    if total_grams <= EPSILON or qty <= EPSILON:
+        return qty
+    ratio = max(0.0, min(1.0, left_grams / total_grams))
+    return round(qty * ratio, 3)
+
+
 def consume(inv_id: str, grams: float | None = None) -> dict:
-    """消耗库存：扣克数，扣完置 consumed，并写 events 供统计口径使用。"""
+    """消耗库存：按克数比例扣 qty 与 grams，扣完置 consumed，并写 events 供统计口径使用。"""
     conn = get_conn()
     try:
         row = _fetch(conn, inv_id)
@@ -263,8 +285,8 @@ def consume(inv_id: str, grams: float | None = None) -> dict:
         take, left, carbon_kg, money = _consume_query(conn, row, grams)
         status = STATUS_CONSUMED if left <= EPSILON else STATUS_ACTIVE
         conn.execute(
-            "UPDATE inventory SET grams = ?, status = ? WHERE id = ?",
-            (max(left, 0.0), status, inv_id),
+            "UPDATE inventory SET qty = ?, grams = ?, status = ? WHERE id = ?",
+            (_qty_after(row, left), max(left, 0.0), status, inv_id),
         )
         conn.execute(
             "INSERT INTO events(id,kind,payload,created_at) VALUES(?,?,?,?)",
@@ -313,8 +335,8 @@ def discard(inv_id: str, reason: str, grams: float | None = None) -> dict:
         take, left, carbon_kg, _money = _consume_query(conn, row, grams)
         status = STATUS_DISCARDED if left <= EPSILON else STATUS_ACTIVE
         conn.execute(
-            "UPDATE inventory SET grams = ?, status = ? WHERE id = ?",
-            (max(left, 0.0), status, inv_id),
+            "UPDATE inventory SET qty = ?, grams = ?, status = ? WHERE id = ?",
+            (_qty_after(row, left), max(left, 0.0), status, inv_id),
         )
         conn.execute(
             "INSERT INTO waste_log(id,inventory_id,name,grams,reason,carbon_kg,created_at)"

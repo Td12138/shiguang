@@ -1,15 +1,34 @@
-"""引用（citation）构造与去重（契约 §8：每个 chunk 带 source + locator）。"""
+"""引用（citation）构造与去重（契约 §8：每个 chunk 带 source + locator + text）。
+
+`text` 是原文摘录（截断 `SNIPPET_CHARS` 字），前端点角标直接弹这段原文，
+不用再单独查一次接口。没有原文时（例如 `stats:30d` 这类合成来源）不带该字段。
+"""
 
 from __future__ import annotations
 
+SNIPPET_CHARS = 120
+ELLIPSIS = "…"
 
-def make(source: str, locator: str) -> dict:
-    """构造一条引用：`{"source": "recipe:r_012", "locator": "步骤 1-3"}`。"""
-    return {"source": str(source), "locator": str(locator)}
+
+def excerpt(text: object, limit: int = SNIPPET_CHARS) -> str:
+    """把原文压成一句话摘录：去多余空白 + 截断。"""
+    compact = " ".join(str(text or "").split())
+    if len(compact) <= limit:
+        return compact
+    return compact[:limit] + ELLIPSIS
+
+
+def make(source: str, locator: str, text: object | None = None) -> dict:
+    """构造一条引用：`{"source": "recipe:r_012", "locator": "步骤 1-3", "text": "…"}`。"""
+    citation: dict = {"source": str(source), "locator": str(locator)}
+    snippet = excerpt(text)
+    if snippet:
+        citation["text"] = snippet
+    return citation
 
 
 def from_chunk(chunk: dict) -> dict:
-    return make(chunk.get("source", ""), chunk.get("locator", ""))
+    return make(chunk.get("source", ""), chunk.get("locator", ""), chunk.get("body"))
 
 
 def collect(chunks: list[dict], limit: int | None = None) -> list[dict]:

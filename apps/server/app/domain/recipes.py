@@ -39,6 +39,7 @@ PLAN_TOP_K = 10
 MIN_RECIPE_STEPS = 3
 CANDIDATE_MULTIPLIER = 2
 COMPOSE_ATTEMPTS = 2
+EPSILON = 1e-6
 DEGRADE_WARNING = "已降级：模型不可用或输出未通过校验，本次按检索分数排序并用模板生成理由"
 
 UNDERSTAND_SYSTEM = "阶段：understand\n你是「食光」的菜谱规划助手，只输出 JSON，不输出解释。"
@@ -270,7 +271,8 @@ def _sanitize_citations(raw: list, candidate: dict, allowed: set[tuple[str, str]
         if not source or key not in allowed or key in seen:
             continue
         seen.add(key)
-        kept.append({"source": source, "locator": locator})
+        # 前端角标要弹原文：text 取候选 chunk 的 body（截断 120 字）
+        kept.append(citation_utils.make(source, locator, candidate.get("body")))
     if not kept:
         fallback = citation_utils.from_chunk(candidate)
         if fallback["source"]:
@@ -390,6 +392,65 @@ def _degraded_recommendations(
         if len(recommendations) >= limit:
             break
     return recommendations
+
+
+def _round_qty(value: float) -> float | int:
+    if abs(value - round(value)) < 1e-6:
+        return int(round(value))
+    return round(value, 2)
+
+
+def _matched_inventory(name: str, inventory_items: list[dict]) -> list[dict]:
+    """按名称互含匹配库存行，临期优先（前端按 inventory_id 直接扣库存）。"""
+    rows = [
+        item
+        for item in inventory_items
+        if name
+        and (
+            name == str(item.get("name") or "")
+            or name in str(item.get("name") or "")
+            or str(item.get("name") or "") in name
+        )
+    ]
+    rows.sort(key=lambda item: int(item.get("days_left", 0)))
+    return rows
+
+
+def _attach_uses(
+    recommendations: list[dict], candidates: list[dict], inventory_items: list[dict]
+) -> None:
+    """给每条推荐补 uses：[{inventory_id,name,qty,unit}]，跨推荐不重复占用同一库存。"""
+    by_id = {cand["recipe_id"]: cand for cand in candidates}
+    remaining = {
+        item["id"]: float(item.get("qty") or 0.0) for item in inventory_items
+    }
+
+    for rec in recommendations:
+        candidate = by_id.get(rec["recipe_id"]) or {}
+        uses: list[dict] = []
+        for ingredient in candidate.get("ingredients", []):
+            name = str(ingredient.get("name") or "").strip()
+            need = float(ingredient.get("qty") or 1)
+            if not name or need <= 0:
+                continue
+            for item in _matched_inventory(name, inventory_items):
+                available = remaining.get(item["id"], 0.0)
+                if available <= EPSILON:
+                    continue
+                take = min(need, available)
+                uses.append(
+                    {
+                        "inventory_id": item["id"],
+                        "name": item["name"],
+                        "qty": _round_qty(take),
+                        "unit": item.get("unit") or ingredient.get("unit") or "",
+                    }
+                )
+                remaining[item["id"]] = available - take
+                need -= take
+                if need <= EPSILON:
+                    break
+        rec["uses"] = uses
 
 
 async def _try_compose(
@@ -528,6 +589,7 @@ async def suggest(
 
         if parsed is None:
             recommendations = _degraded_recommendations(candidates, inventory_items, limit)
+            _attach_uses(recommendations, candidates, inventory_items)
             state = STATE_DEGRADED
             trace.add(STEP_COMPOSE, STATE_DEGRADED, watch, "模型不可用，按检索分数排序")
             warnings.append(DEGRADE_WARNING)
@@ -583,6 +645,7 @@ async def suggest(
             )
 
         _persist_run(run_id, state, trace.steps)
+        _attach_uses(recommendations, candidates, inventory_items)
         return {"run_id": run_id, "recommendations": recommendations, "warnings": warnings}
 
     except AppError:

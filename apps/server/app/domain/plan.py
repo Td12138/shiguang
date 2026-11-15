@@ -581,16 +581,28 @@ def _compose_messages(
 def _parse_compose(
     data: Any, candidates: list[dict], day_count: int
 ) -> list[dict] | None:
-    """兼容 {"meals": [...]} 与 {"recommendations": [...]} 两种形态。"""
-    if not isinstance(data, dict):
-        return None
+    """兼容 meals / recommendations / items / days 四种形态（真实模型都出现过）。"""
     known = {cand["recipe_id"] for cand in candidates}
     slots = list(MEAL_SLOTS)
     requested = day_count * len(slots)
 
-    rows = data.get("meals")
-    if not isinstance(rows, list):
-        rows = data.get("recommendations")
+    rows: Any = None
+    if isinstance(data, list):
+        rows = data
+    elif isinstance(data, dict):
+        for key in ("meals", "recommendations", "items"):
+            if isinstance(data.get(key), list):
+                rows = data[key]
+                break
+        if rows is None and isinstance(data.get("days"), list):
+            flattened: list[dict] = []
+            for day_index, day in enumerate(data["days"], start=1):
+                if not isinstance(day, dict):
+                    continue
+                for meal in day.get("meals") or []:
+                    if isinstance(meal, dict):
+                        flattened.append({**meal, "day": meal.get("day") or day_index})
+            rows = flattened
     if not isinstance(rows, list) or not rows:
         return None
 

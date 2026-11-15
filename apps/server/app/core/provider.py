@@ -267,10 +267,13 @@ class OpenAICompatibleProvider:
                 LOGGER.warning("provider=%s 第 %d 次返回非 JSON：%s", self.name, attempt + 1, truncate(content, 120))
                 continue
             if schema is None:
-                if not isinstance(data, dict):
-                    last_error = "not_object"
-                    continue
-                return data
+                if isinstance(data, dict):
+                    return data
+                if isinstance(data, list):
+                    # 真实模型经常直接给数组，统一收口成 items，调用方按需取
+                    return {"items": [row for row in data if isinstance(row, dict)]}
+                last_error = "not_object"
+                continue
             try:
                 return schema.model_validate(data).model_dump()
             except ValidationError as exc:

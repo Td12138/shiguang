@@ -1,0 +1,115 @@
+"""FastAPI 装配层（契约 §4：main.py 只做装配，业务全在 api/ 与 domain/）。
+
+并行开发要点：B 的路由模块若尚未交付，``ImportError`` 一律跳过并打日志，
+保证 A 单干时服务也能起、``/api/health`` 可访问。
+"""
+
+from __future__ import annotations
+
+import importlib
+import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from typing import Any
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from app import config
+from app.api import health
+from app.core.errors import AppError
+
+LOGGER = logging.getLogger(__name__)
+
+SERVICE_TITLE = "食光 · 剩食管家 API"
+SERVICE_VERSION = "0.1.0"
+# B 层路由模块名（对应 app/api/<name>.py），按契约 §6 顺序挂载
+BUSINESS_ROUTERS: tuple[str, ...] = ("capture", "inventory", "recipes", "stats", "report")
+
+
+def configure_logging() -> None:
+    logging.basicConfig(
+        level=getattr(logging, config.LOG_LEVEL, logging.INFO),
+        format="%(asctime)s %(levelname)s %(name)s | %(message)s",
+    )
+
+
+def _init_db() -> None:
+    """B 的 app/db/conn.py 可能还不存在；初始化失败不阻塞启动（健康检查会显示 db 状态）。"""
+    try:
+        module = importlib.import_module("app.db.conn")
+    except ImportError:
+        LOGGER.warning("app.db.conn 尚未交付，跳过数据库初始化")
+        return
+    try:
+        module.init_db()
+    except Exception:
+        LOGGER.exception("数据库初始化失败（服务继续启动，相关接口会报错）")
+    else:
+        LOGGER.info("数据库初始化完成")
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    configure_logging()
+    LOGGER.info("食光后端启动，生效配置：%s", config.describe())
+    _init_db()
+    yield
+    LOGGER.info("食光后端退出")
+
+
+def _mount(app: FastAPI, module_name: str) -> None:
+    """挂载 app.api.<module_name>.router；已自带 /api 前缀的不重复叠加。"""
+    try:
+        module = importlib.import_module(f"app.api.{module_name}")
+    except ImportError as exc:
+        LOGGER.warning("路由 %s 未就绪，跳过（%s）", module_name, exc)
+        return
+    router = getattr(module, "router", None)
+    if router is None:
+        LOGGER.warning("路由 %s 未暴露 router 变量，跳过", module_name)
+        return
+    prefix = "" if str(getattr(router, "prefix", "")).startswith(config.API_PREFIX) else config.API_PREFIX
+    app.include_router(router, prefix=prefix)
+    LOGGER.info("已挂载路由 %s%s", prefix, getattr(router, "prefix", ""))
+
+
+def _error_handler(_request: Request, exc: Exception) -> JSONResponse:
+    error = exc if isinstance(exc, AppError) else AppError("internal_error", "服务内部错误", status=500)
+    LOGGER.warning("返回错误响应：%s", error)
+    return JSONResponse(status_code=error.status, content=error.to_dict())
+
+
+def create_app() -> FastAPI:
+    app = FastAPI(
+        title=SERVICE_TITLE,
+        version=SERVICE_VERSION,
+        description="拍一张冰箱照片，三秒知道什么快坏了、今天做什么吃。",
+        lifespan=lifespan,
+    )
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=list(config.CORS_ORIGINS),
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    app.add_exception_handler(AppError, _error_handler)  # type: ignore[arg-type]
+    app.include_router(health.router, prefix=config.API_PREFIX)
+    for module_name in BUSINESS_ROUTERS:
+        _mount(app, module_name)
+    return app
+
+
+app: FastAPI = create_app()
+
+
+@app.get("/", include_in_schema=False)
+async def root() -> dict[str, Any]:
+    return {
+        "service": config.SERVICE_NAME,
+        "version": SERVICE_VERSION,
+        "docs": "/docs",
+        "health": f"{config.API_PREFIX}/health",
+    }

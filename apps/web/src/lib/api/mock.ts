@@ -4,15 +4,18 @@
  * 页面据此渲染「演示数据」提示条 —— 不静默假装真实数据（契约 §10.5）。
  * 数据本体在 fixtures.ts / fixtures-recipes.ts。
  */
-import { createMealPlan, getAgentRun, getStatsSummary, listInventory, recognizeImage, suggestRecipes } from './client';
+import { getAgentRun, getStatsSummary, listInventory, recognizeImage, suggestRecipes } from './client';
+import { createMealPlan, listPreferences } from './client-plan';
 import { MOCK_AGENT_RUN, MOCK_INVENTORY, MOCK_RECOGNITION } from './fixtures';
 import { MOCK_PLAN } from './fixtures-plan';
+import { MOCK_PREFERENCES } from './fixtures-preferences';
 import { MOCK_STATS, MOCK_SUGGESTION } from './fixtures-recipes';
 import type {
   AgentRun,
   InventoryItem,
   MealPlan,
   PlanRequest,
+  PreferenceList,
   RecognitionResult,
   Sourced,
   StatsSummary,
@@ -21,6 +24,7 @@ import type {
 
 export { MOCK_AGENT_RUN, MOCK_INVENTORY, MOCK_RECOGNITION, MOCK_RUN_ID } from './fixtures';
 export { MOCK_PLAN, MOCK_PLAN_RUN_ID } from './fixtures-plan';
+export { MOCK_PREFERENCES } from './fixtures-preferences';
 export { MOCK_STATS, MOCK_SUGGESTION } from './fixtures-recipes';
 
 /** 真实请求失败 → 回落 mock，并标记 demo；成功路径原样返回 */
@@ -83,5 +87,16 @@ export function loadPlan(body: PlanRequest): Promise<Sourced<MealPlan>> {
   return withDemoFallback<MealPlan>(
     () => createMealPlan(body),
     () => MOCK_PLAN,
+  );
+}
+
+/**
+ * §6.10 偏好列表：读失败回样例（面板标「演示数据」）。
+ * 写操作（新增/删除）不做 mock 回落——写入不能假装成功。
+ */
+export function loadPreferences(): Promise<Sourced<PreferenceList>> {
+  return withDemoFallback<PreferenceList>(
+    () => listPreferences(),
+    () => MOCK_PREFERENCES,
   );
 }

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { InventoryItem } from '@/lib/api';
+import { resolveCategory } from '@/lib/categories';
 import { expiryText } from '@/lib/format';
 import { Button } from './Button';
 import { ConfidenceBar } from './ConfidenceBar';
@@ -18,7 +19,7 @@ export interface ItemCardProps {
   footer?: ReactNode;
 }
 
-/** 食材卡片：左侧色条标时效，大数字标剩余天数 */
+/** 食材卡片：左侧色条标时效，大数字标剩余天数，类别取自后端或本地兜底 */
 export function ItemCard({
   item,
   size = 'md',
@@ -27,7 +28,8 @@ export function ItemCard({
   onAction,
   footer,
 }: ItemCardProps) {
-  const ariaLabel = `${item.name}，${item.qty}${item.unit}，${expiryText(item.days_left)}`;
+  const category = resolveCategory(item);
+  const ariaLabel = `${category}，${item.name}，${item.qty}${item.unit}，${expiryText(item.days_left)}`;
 
   return (
     <article className={styles.card} data-level={item.level} data-size={size} aria-label={ariaLabel}>
@@ -35,6 +37,7 @@ export function ItemCard({
       <div className={styles.inner}>
         <header className={styles.head}>
           <h3 className={styles.name}>{item.name}</h3>
+          <span className={styles.category}>{category}</span>
           <span className={styles.qty}>
             {item.qty}
             {item.unit}

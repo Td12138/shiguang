@@ -1,70 +1,86 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ApiError, deletePreference } from '@/lib/api';
+import type { LearnedPreference } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { DemoBanner } from '@/components/ui/DemoBanner';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Modal } from '@/components/ui/Modal';
 import { Notice } from '@/components/ui/Notice';
-import { Segmented } from '@/components/ui/Segmented';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { CoverageBar } from './CoverageBar';
-import { PlanDayColumn } from './PlanDayColumn';
-import { ShoppingList } from './ShoppingList';
-import { DAY_OPTIONS, MINUTES_OPTIONS, usePlan } from './usePlan';
+import { useToast } from '@/components/ui/Toast';
+import { PlanBody } from './PlanBody';
+import { PlanControls } from './PlanControls';
+import { PlanDiff } from './PlanDiff';
+import { PreferencesPanel } from './PreferencesPanel';
+import { ReviseComposer } from './ReviseComposer';
+import { usePlan } from './usePlan';
 import styles from './PlanPage.module.css';
 
 export default function PlanPage() {
   const plan = usePlan();
+  const { toast } = useToast();
   const navigate = useNavigate();
-  const empty = plan.plan !== null && plan.plan.days.length === 0;
+  const [prefsOpen, setPrefsOpen] = useState(false);
+
+  const hasPlan = plan.plan !== null && plan.plan.days.length > 0;
+  const emptyPlan = plan.plan !== null && plan.plan.days.length === 0;
+
+  const revoke = async (preference: LearnedPreference): Promise<void> => {
+    try {
+      await deletePreference(preference.id);
+      toast(`已撤销：${preference.text}`, 'info');
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : '撤销失败，可在「我的偏好」里手动删除', 'error');
+    }
+  };
+
+  const handleRevise = async (instruction: string): Promise<void> => {
+    const outcome = await plan.revise(instruction);
+    if (!outcome.ok) {
+      toast(outcome.message ?? '调整失败', 'error');
+      return;
+    }
+    if (outcome.changed.length === 0) {
+      toast('这次没能改，原因见下方', 'info');
+    } else {
+      toast(`已调整 ${outcome.changed.length} 处`, 'success');
+    }
+    outcome.learned.forEach((preference) => {
+      toast(`已记住：${preference.text}`, 'success', {
+        action: { label: '撤销', onAction: () => void revoke(preference) },
+      });
+    });
+  };
 
   return (
-    <div className="page-stack">
+    <div className={`page-stack ${hasPlan ? styles.withComposer : ''}`}>
       {plan.demo ? (
         <DemoBanner
-          message="计划接口没有响应（后端 /api/plan/meals 可能还没上线），下面这份是内置样例，不是按你的库存算出来的。"
+          message="计划接口没有响应，下面这份是内置样例；改计划与偏好的写入都需要真实后端。"
           onRetry={() => void plan.generate()}
         />
       ) : null}
 
-      <Card
-        title="生成饮食计划"
-        subtitle="按天分配、按到期顺序消耗；过期食材绝不进计划"
-        actions={
-          <Button
-            onClick={() => void plan.generate()}
-            loading={plan.loading}
-            disabled={plan.inventory.length === 0}
-          >
-            生成计划
-          </Button>
-        }
-      >
-        <div className={styles.controls}>
-          <div className={styles.control}>
-            <span className={styles.controlLabel}>计划天数</span>
-            <Segmented
-              ariaLabel="计划天数"
-              options={DAY_OPTIONS}
-              value={plan.days}
-              onChange={plan.setDays}
-              disabled={plan.loading}
-            />
-          </div>
-          <div className={styles.control}>
-            <span className={styles.controlLabel}>单餐时长上限</span>
-            <Segmented
-              ariaLabel="单餐时长上限"
-              options={MINUTES_OPTIONS}
-              value={plan.minutes}
-              onChange={plan.setMinutes}
-              disabled={plan.loading}
-            />
-          </div>
-        </div>
-        <p className={styles.note}>
-          按 1 人份安排（2 人份当前同样按 1 人份配餐）；每餐都挂真实 recipe_id 与引用，方便核对。
-        </p>
-      </Card>
+      <PlanControls
+        days={plan.days}
+        minutes={plan.minutes}
+        loading={plan.loading}
+        canGenerate={plan.inventory.length > 0}
+        onDays={plan.setDays}
+        onMinutes={plan.setMinutes}
+        onGenerate={() => void plan.generate()}
+        onOpenPreferences={() => setPrefsOpen(true)}
+      />
+
+      {plan.reviseError ? (
+        <Notice tone="error" title="调整失败，计划未改动">
+          {plan.reviseError}
+        </Notice>
+      ) : null}
+
+      <PlanDiff diff={plan.diff} onDismiss={plan.dismissDiff} />
 
       {plan.error ? (
         <Notice
@@ -102,7 +118,7 @@ export default function PlanPage() {
             action={<Button onClick={() => void plan.generate()}>现在生成</Button>}
           />
         </Card>
-      ) : empty ? (
+      ) : emptyPlan ? (
         <Card>
           <EmptyState
             title="这段时间排不出可用计划"
@@ -114,30 +130,15 @@ export default function PlanPage() {
             }
           />
         </Card>
-      ) : (
-        <>
-          <CoverageBar coverage={plan.plan.coverage} inventoryTotal={plan.inventory.length} />
+      ) : plan.plan ? (
+        <PlanBody plan={plan.plan} inventoryTotal={plan.inventory.length} />
+      ) : null}
 
-          {plan.plan.warnings.length > 0 ? (
-            <Notice tone="warn" title="计划提示">
-              <ul className={styles.warnings}>
-                {plan.plan.warnings.map((warning) => (
-                  <li key={warning}>{warning}</li>
-                ))}
-              </ul>
-            </Notice>
-          ) : null}
+      {hasPlan ? <ReviseComposer revising={plan.revising} onSubmit={(text) => void handleRevise(text)} /> : null}
 
-          <div className={styles.layout}>
-            <div className={styles.days}>
-              {plan.plan.days.map((day, index) => (
-                <PlanDayColumn key={day.date} day={day} index={index} />
-              ))}
-            </div>
-            <ShoppingList items={plan.plan.shopping} />
-          </div>
-        </>
-      )}
+      <Modal open={prefsOpen} title="我的偏好" onClose={() => setPrefsOpen(false)}>
+        <PreferencesPanel demo={plan.demo} />
+      </Modal>
     </div>
   );
 }

@@ -1,0 +1,76 @@
+.bar {
+  position: fixed;
+  left: var(--layout-sidebar);
+  right: 0;
+  bottom: 0;
+  z-index: 25;
+  padding: var(--space-1) var(--space-5) 12px;
+  background: var(--color-bg);
+  border-top: 1px solid var(--color-border);
+  box-shadow: 0 -6px 20px rgb(27 27 27 / 6%);
+}
+
+.inner {
+  width: 100%;
+  max-width: var(--layout-max);
+  margin: 0 auto;
+  display: grid;
+  gap: 8px;
+}
+
+.chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.chips::-webkit-scrollbar {
+  display: none;
+}
+
+.chips li {
+  flex: 0 0 auto;
+}
+
+.form {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 11px var(--space-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  font-size: var(--fs-3);
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.input:disabled {
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+}
+
+.hint {
+  color: var(--color-text-faint);
+  font-size: var(--fs-1);
+}
+
+@media (max-width: 767px) {
+  .bar {
+    left: 0;
+    bottom: var(--layout-tabbar);
+    padding: 8px var(--space-3) 10px;
+  }
+
+  .form button {
+    flex-shrink: 0;
+  }
+}

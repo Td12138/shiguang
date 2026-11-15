@@ -6,19 +6,22 @@
   transform: translateX(-50%);
   display: grid;
   gap: var(--space-1);
-  width: min(420px, calc(100vw - var(--space-4)));
+  width: min(440px, calc(100vw - var(--space-4)));
   pointer-events: none;
 }
 
 .toast {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
   padding: 10px var(--space-2);
   border-radius: var(--radius-md);
   background: var(--color-text);
   color: #fff;
   font-size: var(--fs-2);
-  text-align: center;
   box-shadow: var(--shadow-md);
   animation: toast-in 180ms ease;
+  pointer-events: auto;
 }
 
 .toast[data-tone='success'] {
@@ -27,6 +30,31 @@
 
 .toast[data-tone='error'] {
   background: var(--color-danger);
+}
+
+.message {
+  flex: 1 1 auto;
+  text-align: center;
+}
+
+.action {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border: 1px solid rgb(255 255 255 / 55%);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: #fff;
+  font-size: var(--fs-1);
+  font-weight: var(--fw-bold);
+}
+
+.action:hover {
+  background: rgb(255 255 255 / 18%);
+}
+
+.action:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
 }
 
 @keyframes toast-in {
@@ -39,5 +67,16 @@
 @media (min-width: 768px) {
   .viewport {
     bottom: var(--space-3);
+  }
+}
+
+/* /plan 的固定输入条在底部时，提示条整体上移，别盖住发送按钮 */
+:global(body[data-composer='on']) .viewport {
+  bottom: calc(var(--layout-tabbar) + 200px);
+}
+
+@media (min-width: 768px) {
+  :global(body[data-composer='on']) .viewport {
+    bottom: 172px;
   }
 }

@@ -105,5 +105,6 @@ export interface InventoryOperationResult {
 
 export type DiscardReason = 'forgot' | 'spoiled' | 'too_much';
 
-/* AI 相关类型（菜谱 / 计划 / Agent / 周报）见 types-ai.ts，此处统一转出 */
+/* AI 相关类型（菜谱 / 计划 / Agent / 周报）见 types-ai.ts，计划迭代与偏好见 types-plan.ts */
 export * from './types-ai';
+export * from './types-plan';

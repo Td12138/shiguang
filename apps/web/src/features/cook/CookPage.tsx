@@ -33,8 +33,16 @@ export default function CookPage() {
   };
 
   const handleCooked = async (recipe: RecipeRecommendation): Promise<void> => {
-    const hasIds = (recipe.uses ?? []).some((use) => use.inventory_id);
-    if (hasIds) await finish(recipe, []);
+    // 优先用 uses[].inventory_id 直接扣减；没有 id 时按食材名对上库存；都对不上才弹确认
+    const ids = (recipe.uses ?? []).flatMap((use) => {
+      if (use.inventory_id && cook.inventory.some((item) => item.id === use.inventory_id)) {
+        return [use.inventory_id];
+      }
+      const byName = cook.inventory.find((item) => item.name === use.name);
+      return byName ? [byName.id] : [];
+    });
+    const complete = (recipe.uses ?? []).length > 0 && ids.length === (recipe.uses ?? []).length;
+    if (complete) await finish(recipe, ids);
     else setPending(recipe);
   };
 

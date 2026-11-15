@@ -1,43 +1,6 @@
-.controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  align-items: center;
-}
-
-.control {
-  display: grid;
-  gap: 6px;
-}
-
-.controlLabel {
-  color: var(--color-text-faint);
-  font-size: var(--fs-1);
-}
-
-.note {
-  margin-top: var(--space-2);
-  color: var(--color-text-faint);
-  font-size: var(--fs-1);
-}
-
-.warnings {
-  display: grid;
-  gap: 2px;
-  margin-top: var(--space-1);
-}
-
-.layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: var(--space-2);
-  align-items: start;
-}
-
-.days {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: var(--space-2);
+.withComposer {
+  /* 给固定底部输入框让位，避免遮挡最后一栏 */
+  padding-bottom: 148px;
 }
 
 .skeletonGrid {
@@ -46,19 +9,8 @@
   gap: var(--space-2);
 }
 
-@media (max-width: 1023px) {
-  .layout {
-    grid-template-columns: 1fr;
-  }
-}
-
 @media (max-width: 767px) {
-  .controls {
-    display: grid;
-    gap: var(--space-2);
-  }
-
-  .control {
-    gap: 4px;
+  .withComposer {
+    padding-bottom: 236px;
   }
 }

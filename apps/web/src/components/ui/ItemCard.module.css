@@ -38,11 +38,24 @@
 }
 
 .name {
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: var(--fs-3);
   color: var(--color-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.category {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-muted);
+  color: var(--color-text-faint);
+  font-size: 10px;
+  line-height: 1.6;
 }
 
 .qty {

@@ -137,12 +137,21 @@ def _fetch(conn, inv_id: str):
     return row
 
 
+def _added_at(value: str | None) -> str | None:
+    """契约 §6.11：小票确认入库时 `added_at` 用购物日期（只给 YYYY-MM-DD 也接受）。"""
+    parsed = parse_date(value)
+    if parsed is None:
+        return None
+    return datetime.combine(parsed, datetime.min.time()).astimezone().isoformat(timespec="seconds")
+
+
 def add_items(payload: dict) -> dict:
     """入库（识别结果需人工确认后走这里）。返回 {"added": n, "ids": [...]}。"""
     raw_items = payload.get("items") or []
     image_id = payload.get("image_id")
     ids: list[str] = []
-    timestamp = now_iso()
+    # 缺省现在是入库时间；只有显式传了有效日期才用购物日期
+    timestamp = _added_at(payload.get("added_at")) or now_iso()
     conn = get_conn()
     try:
         for raw in raw_items:

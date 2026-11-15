@@ -215,3 +215,10 @@ async def recognize(file: UploadFile = File(...)) -> dict:
         raise AppError("vision_unavailable", "没有识别出任何食材，请换一张更清晰的照片", 422)
 
     return {"image_id": image_id, "items": items, "warnings": warnings}
+
+
+# 小票识别（契约 §6.11）挂在同一棵 capture router 上：路径 /api/capture/receipt。
+# 新文件里用延迟导入复用本模块的视觉链路，不引入循环引用，也不用改 main.py。
+from app.api import receipt as receipt_api  # noqa: E402
+
+router.include_router(receipt_api.router)

@@ -38,3 +38,9 @@ async def suggest(payload: SuggestIn) -> dict:
 @router.get("/agent/runs/{run_id}")
 def read_run(run_id: str) -> dict:
     return recipes_domain.get_run(run_id)
+
+
+# 备菜流水线（契约 §6.12）：/api/cook/sequence，挂在同一棵 router 树上
+from app.api import cook as cook_api  # noqa: E402
+
+router.include_router(cook_api.router)

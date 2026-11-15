@@ -26,6 +26,8 @@ class InventoryItemIn(BaseModel):
 
 class InventoryIn(BaseModel):
     image_id: str | None = None
+    # 契约 §6.11：小票确认入库时传 purchased_at，入库时间按购物日期记（缺省=当前时间）
+    added_at: str | None = None
     items: list[InventoryItemIn] = Field(min_length=1)
 
 

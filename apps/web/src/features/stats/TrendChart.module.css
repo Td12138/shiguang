@@ -1,0 +1,66 @@
+.wrap {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.chart {
+  width: 100%;
+  height: auto;
+}
+
+.axis {
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+
+.saved {
+  fill: var(--color-primary);
+}
+
+.thrown {
+  fill: var(--color-danger);
+  opacity: 0.9;
+}
+
+.label {
+  font-size: 11px;
+  fill: var(--color-text-faint);
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-size: var(--fs-1);
+  color: var(--color-text-muted);
+}
+
+.legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--color-primary);
+}
+
+.legend [data-tone='bad'] i {
+  background: var(--color-danger);
+}
+
+.scale {
+  margin-left: auto;
+  color: var(--color-text-faint);
+}
+
+@media (max-width: 767px) {
+  .scale {
+    margin-left: 0;
+  }
+}

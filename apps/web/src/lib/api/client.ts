@@ -5,12 +5,15 @@
 import type {
   AgentRun,
   ApiErrorBody,
+  ConsumeResult,
   CreateInventoryRequest,
   CreateInventoryResponse,
   DiscardReason,
   HealthResponse,
   InventoryItem,
   InventoryOperationResult,
+  MealPlan,
+  PlanRequest,
   RecognitionResult,
   StatsSummary,
   SuggestRequest,
@@ -26,6 +29,8 @@ const API_PREFIX = '/api';
 const DEFAULT_TIMEOUT_MS = 20_000;
 /** 图片上传超时（VLM 慢） */
 const UPLOAD_TIMEOUT_MS = 60_000;
+/** 饮食计划要跑 5 步 Agent，给足时间 */
+const PLAN_TIMEOUT_MS = 90_000;
 
 export class ApiError extends Error {
   readonly code: string;
@@ -143,9 +148,9 @@ export function updateInventory(
 export function consumeInventory(
   id: string,
   grams?: number,
-): Promise<InventoryOperationResult> {
+): Promise<ConsumeResult> {
   const body = typeof grams === 'number' ? { grams } : {};
-  return request<InventoryOperationResult>(
+  return request<ConsumeResult>(
     `/inventory/${encodeURIComponent(id)}/consume`,
     jsonInit('POST', body),
   );
@@ -179,6 +184,12 @@ export function getStatsSummary(range = '30d'): Promise<StatsSummary> {
 
 export function getAgentRun(runId: string): Promise<AgentRun> {
   return request<AgentRun>(`/agent/runs/${encodeURIComponent(runId)}`);
+}
+
+/* ------------------------------------------------------------ §6.8 饮食计划 */
+
+export function createMealPlan(body: PlanRequest): Promise<MealPlan> {
+  return request<MealPlan>('/plan/meals', jsonInit('POST', body), PLAN_TIMEOUT_MS);
 }
 
 /* 周报 SSE 见 sse.ts：request() 不适合流式响应 */

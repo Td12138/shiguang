@@ -72,6 +72,18 @@
   color: var(--color-danger);
 }
 
+.step[data-status='degraded'] .marker {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.step[data-status='empty'] .marker,
+.step[data-status='skipped'] .marker {
+  background: var(--color-surface-muted);
+  color: var(--color-text-faint);
+  border: 1px dashed var(--color-border-strong);
+}
+
 .step[data-status='pending'] .marker {
   background: var(--color-surface-muted);
   color: var(--color-text-faint);
@@ -107,10 +119,27 @@
   color: var(--color-danger);
 }
 
+.badge[data-status='degraded'] {
+  background: var(--color-accent-soft);
+  color: #9a4f14;
+}
+
 .badge[data-status='running'],
-.badge[data-status='pending'] {
+.badge[data-status='pending'],
+.badge[data-status='empty'],
+.badge[data-status='skipped'] {
   background: var(--color-surface-muted);
   color: var(--color-text-muted);
+}
+
+.state[data-state='failed'] {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.state[data-state='degraded'] {
+  background: var(--color-accent-soft);
+  color: #9a4f14;
 }
 
 .ms {

@@ -1,4 +1,5 @@
 import type { InventoryItem } from '@/lib/api';
+import { resolveCategory } from '@/lib/categories';
 
 /** 临期区最多展示的卡片数 */
 export const EXPIRING_LIMIT = 6;
@@ -7,7 +8,6 @@ const SUGGEST_SEED_LIMIT = 3;
 
 /** 类别展示顺序；未登记的类别统一排到「其他」之后 */
 const CATEGORY_ORDER = ['蔬菜', '水果', '肉蛋', '乳制品', '主食', '冷冻', '调味', '其他'];
-const FALLBACK_CATEGORY = '其他';
 
 export interface CategoryGroup {
   name: string;
@@ -44,7 +44,7 @@ export function groupByCategory(items: InventoryItem[]): CategoryGroup[] {
   const buckets = new Map<string, InventoryItem[]>();
 
   for (const item of items) {
-    const key = item.category?.trim() ? item.category.trim() : FALLBACK_CATEGORY;
+    const key = resolveCategory(item);
     const bucket = buckets.get(key);
     if (bucket) bucket.push(item);
     else buckets.set(key, [item]);

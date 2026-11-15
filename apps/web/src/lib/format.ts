@@ -51,3 +51,12 @@ export function formatGrams(grams: number): string {
 export function formatScore(score: number): string {
   return `${Math.round(score * 100)}%`;
 }
+
+const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+
+/** 「11/16 周一」：饮食计划按天分栏用 */
+export function dayLabel(iso: string): string {
+  const date = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return iso;
+  return `${date.getMonth() + 1}/${date.getDate()} ${WEEKDAYS[date.getDay()] ?? ''}`;
+}

@@ -30,6 +30,13 @@ export const NAV_ITEMS: NavItem[] = [
     subtitle: '拍一张冰箱照片，识别结果先校对再入库',
   },
   {
+    path: '/plan',
+    label: '饮食计划',
+    icon: 'calendar',
+    title: '3 天饮食计划',
+    subtitle: '按到期顺序排餐，缺料合并成一张采购清单',
+  },
+  {
     path: '/cook',
     label: '今日吃啥',
     icon: 'pot',

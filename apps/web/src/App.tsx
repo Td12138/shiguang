@@ -7,6 +7,7 @@ import { ToastProvider } from './components/ui/Toast';
 // 路由级懒加载：首屏只加载外壳 + 首页，其余页面按需拉取
 const DashboardPage = lazy(() => import('./features/dashboard/DashboardPage'));
 const CapturePage = lazy(() => import('./features/capture/CapturePage'));
+const PlanPage = lazy(() => import('./features/plan/PlanPage'));
 const CookPage = lazy(() => import('./features/cook/CookPage'));
 const StatsPage = lazy(() => import('./features/stats/StatsPage'));
 const ReportPage = lazy(() => import('./features/report/ReportPage'));
@@ -20,6 +21,7 @@ export default function App() {
             <Route element={<AppLayout />}>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/capture" element={<CapturePage />} />
+              <Route path="/plan" element={<PlanPage />} />
               <Route path="/cook" element={<CookPage />} />
               <Route path="/stats" element={<StatsPage />} />
               <Route path="/report" element={<ReportPage />} />

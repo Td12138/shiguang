@@ -202,9 +202,10 @@ def fake_provider():
 @pytest.fixture()
 def no_llm(monkeypatch):
     """强制业务层拿到 None provider（模拟无 key，走降级路径）。"""
+    from app.domain import plan as plan_module
     from app.domain import recipes as recipes_module
     from app.domain import report as report_module
 
-    monkeypatch.setattr(recipes_module, "resolve_provider", lambda provider=None: None)
-    monkeypatch.setattr(report_module, "resolve_provider", lambda provider=None: None)
+    for module in (recipes_module, report_module, plan_module):
+        monkeypatch.setattr(module, "resolve_provider", lambda provider=None: None)
     return None

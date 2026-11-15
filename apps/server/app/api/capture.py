@@ -16,6 +16,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, File, UploadFile
 
+from app import config
 from app.db.conn import get_conn
 from app.domain.inventory import DEFAULT_SHELF_LIFE_DAYS, find_item, now_iso, today
 from app.domain.tools_registry import AppError, resolve_provider
@@ -30,7 +31,6 @@ FIXTURE_FILE = SERVER_ROOT / "app" / "data" / "fixtures" / "recognize.json"
 FIXTURES_DIR = SERVER_ROOT / "app" / "data" / "fixtures"
 
 LOW_CONFIDENCE = 0.7
-MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 DEFAULT_CONFIDENCE = 0.6
 DEFAULT_QTY = 1.0
 EXT_BY_MIME = {
@@ -115,13 +115,27 @@ def _stored_path(path: Path) -> str:
         return str(path)
 
 
+def _upload_limit_label() -> str:
+    """用配置常量拼出人类可读上限（不写死数字）。"""
+    limit = config.MAX_UPLOAD_BYTES
+    if limit >= 1024 * 1024:
+        return f"{limit // (1024 * 1024)}MB"
+    if limit >= 1024:
+        return f"{limit // 1024}KB"
+    return f"{limit} 字节"
+
+
 @router.post("/recognize")
 async def recognize(file: UploadFile = File(...)) -> dict:
     content = await file.read()
     if not content:
         raise AppError("empty_file", "上传的图片为空", 400)
-    if len(content) > MAX_UPLOAD_BYTES:
-        raise AppError("file_too_large", "图片超过 15MB，请压缩后再传", 413)
+    if len(content) > config.MAX_UPLOAD_BYTES:
+        raise AppError(
+            "payload_too_large",
+            f"图片超过 {_upload_limit_label()}，请压缩后再传",
+            413,
+        )
 
     mime = (file.content_type or "image/jpeg").lower()
     ext = EXT_BY_MIME.get(mime) or Path(file.filename or "").suffix or ".jpg"

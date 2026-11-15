@@ -99,15 +99,15 @@ async def _invoke_tool(name: str, args: dict, fallback):
     return result
 
 
-def _persist_run(run_id: str, state: str, steps: list[dict]) -> None:
+def _persist_run(run_id: str, state: str, steps: list[dict], kind: str = RUN_KIND) -> None:
     conn = get_conn()
     try:
         conn.execute(
             "INSERT INTO agent_runs(id,kind,state,steps,created_at) VALUES(?,?,?,?,?)"
-            " ON CONFLICT(id) DO UPDATE SET state=excluded.state, steps=excluded.steps",
+            " ON CONFLICT(id) DO UPDATE SET state=excluded.state, steps=excluded.steps, kind=excluded.kind",
             (
                 run_id,
-                RUN_KIND,
+                kind,
                 state,
                 json.dumps(steps, ensure_ascii=False),
                 _now_iso(),
@@ -473,6 +473,17 @@ async def suggest(
             raise AppError("plan_failed", "读取库存失败，请稍后重试", 500, str(exc)) from exc
 
         inventory_items = _select_inventory(planned["items"], use)
+        expired = [item for item in inventory_items if int(item.get("days_left", 0)) < 0]
+        if expired:
+            # 食品安全底线：过期食材不参与推荐，只提示处理
+            inventory_items = [
+                item for item in inventory_items if int(item.get("days_left", 0)) >= 0
+            ]
+            warnings.append(
+                "有 {} 样已过期（{}），已排除在推荐之外，请先确认是否丢弃".format(
+                    len(expired), "、".join(str(item["name"]) for item in expired)
+                )
+            )
         trace.add(
             STEP_PLAN,
             STATE_OK,

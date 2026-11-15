@@ -117,7 +117,8 @@ def _resolve_provider(raw: str) -> str:
 LLM_PROVIDER = _resolve_provider(env_str("SHIGUANG_LLM_PROVIDER", DEFAULT_PROVIDER))
 _PRESET = PROVIDER_PRESETS[LLM_PROVIDER]
 LLM_BASE_URL = env_str("SHIGUANG_LLM_BASE_URL", _PRESET["base_url"]).rstrip("/")
-LLM_API_KEY = env_str("SHIGUANG_LLM_API_KEY", "")
+# 密钥来源优先级：.env 里的 SHIGUANG_LLM_API_KEY → 用户环境变量 ZHIPU_API（不复制进文件、不入库）
+LLM_API_KEY = env_str("SHIGUANG_LLM_API_KEY", "") or os.environ.get("ZHIPU_API", "").strip()
 LLM_MODEL = env_str("SHIGUANG_LLM_MODEL", _PRESET["model"])
 VLM_MODEL = env_str("SHIGUANG_VLM_MODEL", _PRESET["vision_model"])
 EMBEDDING_PROVIDER = env_str("SHIGUANG_EMBEDDING_PROVIDER", "none").strip().lower()
@@ -130,6 +131,7 @@ LLM_TIMEOUT_SECONDS = 60.0
 LLM_VISION_TIMEOUT_SECONDS = 90.0
 LLM_CONNECT_TIMEOUT_SECONDS = 10.0
 LLM_RETRY_TIMES = 1  # 结构化输出解析失败后的额外重试次数（契约 §7）
+SSL_VERIFY = env_str("SHIGUANG_SSL_VERIFY", "os").strip().lower()  # os=系统信任库（可穿越本地 TLS 代理），strict=certifi
 LLM_TEMPERATURE = 0.2
 LLM_MAX_TOKENS = 1024
 VLM_MAX_TOKENS = 1024
@@ -145,6 +147,13 @@ SOON_MIN_DAYS = 2  # 2–3 → soon
 URGENT_MIN_DAYS = 0  # 0–1 → urgent，< 0 → expired
 MAX_UPLOAD_BYTES = 8 * 1024 * 1024
 MAX_TEXT_CHARS = 2000
+
+# --------------------------------------------------------------------- 发布形态（默认关闭 = 本地开发行为不变）
+WEB_DIST_DIR = Path(env_str("SHIGUANG_WEB_DIST", str(PROJECT_DIR / "apps" / "web" / "dist")))
+BASIC_AUTH_SPEC = env_str("SHIGUANG_BASIC_AUTH", "").strip()  # 形如 "demo:口令"；空 = 不启用
+RATE_LIMIT_PER_MIN = env_int("SHIGUANG_RATE_LIMIT_PER_MIN", 0)  # 0 = 不启用
+RATE_LIMIT_WINDOW_SECONDS = 60.0
+RATE_LIMIT_EXEMPT_PATHS = ("/api/health",)
 
 
 def mask_secret(value: str) -> str:

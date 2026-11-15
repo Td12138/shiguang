@@ -16,12 +16,13 @@ from app.domain.tools_registry import AppError
 def client(app_db):
     from app.api import capture
     from app.api import inventory as inventory_api
+    from app.api import plan as plan_api
     from app.api import recipes as recipes_api
     from app.api import report as report_api
     from app.api import stats as stats_api
 
     app = FastAPI()
-    for module in (capture, inventory_api, recipes_api, stats_api, report_api):
+    for module in (capture, inventory_api, recipes_api, stats_api, report_api, plan_api):
         app.include_router(module.router)
 
     @app.exception_handler(AppError)
@@ -188,3 +189,52 @@ def test_weekly_report_stream(client, monkeypatch):
     assert '"type": "citations"' in payload
     assert '"type": "done"' in payload
     assert "碳当量为估算" in payload
+
+def test_plan_meals_endpoint(client, add_item, add_recipe, monkeypatch):
+    from app.domain import plan as plan_domain
+
+    add_item("西兰花", avg_grams=300.0, shelf_life_days=5)
+    add_recipe(
+        "r_broccoli",
+        "蒜蓉西兰花",
+        ingredients=[{"name": "西兰花", "qty": 1, "unit": "颗"}, {"name": "大蒜", "qty": 2, "unit": "瓣"}],
+        steps=["切", "剁蒜", "爆香", "翻炒"],
+        minutes=15,
+    )
+    inv.add_items({"items": [{"name": "西兰花", "qty": 1}]})
+    monkeypatch.setattr(plan_domain, "resolve_provider", lambda provider=None: None)
+
+    response = client.post("/api/plan/meals", json={"days": 2, "servings": 1, "max_minutes": 30})
+    assert response.status_code == 200
+    body = response.json()
+
+    assert body["plan_id"].startswith("plan_")
+    assert body["run_id"].startswith("run_")
+    assert len(body["days"]) == 2
+    assert body["days"][0]["date"] > inv.today().isoformat()
+    meal = body["days"][0]["meals"][0]
+    assert meal["recipe_id"] == "r_broccoli"
+    assert meal["citations"]
+    assert {"slot", "recipe_id", "title", "minutes", "uses", "missing", "citations"} <= set(meal)
+    assert set(body["coverage"]) == {"used_items", "expiring_used", "unused_expiring"}
+    assert any("已降级" in warning for warning in body["warnings"])
+
+    run = client.get(f"/api/agent/runs/{body['run_id']}").json()
+    assert run["kind"] == "meal_plan"
+    assert [step["name"] for step in run["steps"]] == ["understand", "plan", "allocate", "compose", "verify"]
+
+
+def test_capture_payload_too_large(client, monkeypatch):
+    from app.api import capture as capture_api
+
+    monkeypatch.setattr(capture_api.config, "MAX_UPLOAD_BYTES", 10)
+    assert not hasattr(capture_api, "MAX_UPLOAD_BYTES"), "上限只能来自 config，不得本地重复定义"
+
+    response = client.post(
+        "/api/capture/recognize",
+        files={"file": ("big.jpg", b"x" * 11, "image/jpeg")},
+    )
+    assert response.status_code == 413
+    body = response.json()
+    assert body["code"] == "payload_too_large"
+    assert "10 字节" in body["message"]

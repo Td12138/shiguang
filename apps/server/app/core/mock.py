@@ -14,6 +14,7 @@ from typing import Any
 from pydantic import BaseModel, ValidationError
 
 from app import config
+from app.core.errors import AppError
 from app.core.safety import DISCLAIMER_CARBON
 
 LOGGER = logging.getLogger(__name__)
@@ -21,6 +22,7 @@ LOGGER = logging.getLogger(__name__)
 PROVIDER_NAME = "mock"
 FIXTURE_RECOGNIZE = "recognize_fridge.json"
 FIXTURE_SUGGEST = "suggest.json"
+FIXTURE_PLAN = "plan.json"
 
 # 内置视觉样例：模拟真实 VLM 的原始输出（只有名称/数量/单位/置信度），
 # item_id / shelf_life_days / expires_at / matched 由 B 层对照食材库补齐（契约 §6.2）。
@@ -33,34 +35,35 @@ _MOCK_VISION_ITEMS: tuple[dict[str, Any], ...] = (
 
 _MOCK_VISION_WARNING = "当前为 mock 回放数据（未调用真实视觉模型），识别结果请人工确认"
 
-# 内置菜谱样例：每条都带 citations，满足冒烟要求「citations 非空」
+# 内置菜谱样例：id / title / minutes 必须与 app/data/recipes.json 完全一致，
+# 否则 verify 步骤会把它们全部剔除（审查缺陷 §mock-1）
 _MOCK_SUGGEST: dict[str, Any] = {
     "recommendations": [
         {
-            "recipe_id": "r_001",
+            "recipe_id": "r_002",
             "title": "蒜蓉西兰花",
-            "minutes": 15,
-            "reason": "用掉你 4 天后到期的西兰花，只需再加蒜和油。",
-            "missing": [{"name": "大蒜", "optional": False}],
-            "citations": [{"source": "recipe:r_001", "locator": "步骤 1-3"}],
+            "minutes": 12,
+            "reason": "用掉冰箱里剩 2 天到期的西兰花，只需再加蒜和蚝油。",
+            "missing": [{"name": "大蒜", "optional": True}, {"name": "蚝油", "optional": True}],
+            "citations": [{"source": "recipe:r_002", "locator": "步骤 1-4"}],
             "score": 0.83,
         },
         {
-            "recipe_id": "r_002",
-            "title": "香煎鸡胸肉配番茄",
-            "minutes": 20,
-            "reason": "鸡胸肉明天到期，番茄正好搭配，一口锅就能做。",
+            "recipe_id": "r_001",
+            "title": "番茄炒蛋",
+            "minutes": 10,
+            "reason": "番茄明天到期，鸡蛋库存够，十分钟出锅。",
             "missing": [],
-            "citations": [{"source": "recipe:r_002", "locator": "步骤 1-4"}],
+            "citations": [{"source": "recipe:r_001", "locator": "步骤 1-3"}],
             "score": 0.76,
         },
         {
             "recipe_id": "r_003",
-            "title": "番茄鸡蛋面",
-            "minutes": 18,
-            "reason": "番茄临期，先消耗它；缺鸡蛋可顺手买一盒。",
-            "missing": [{"name": "鸡蛋", "optional": False}],
-            "citations": [{"source": "recipe:r_003", "locator": "步骤 2-5"}],
+            "title": "菠菜蛋花汤",
+            "minutes": 10,
+            "reason": "菠菜已过期请先处理；若换成小白菜，这道汤最适合清掉叶菜。",
+            "missing": [],
+            "citations": [{"source": "recipe:r_003", "locator": "步骤 1-3"}],
             "score": 0.68,
         },
     ],
@@ -68,8 +71,8 @@ _MOCK_SUGGEST: dict[str, Any] = {
 }
 
 _MOCK_REPORT_TEXT = (
-    "本周你一共消耗了 3.4 公斤食材，只丢掉了 0.8 公斤，浪费率 18%。"
-    "相当于少排放 5.2 公斤二氧化碳，约等于少开 38 公里车。"
+    "本周你一共消耗了 3.4 公斤食材，只丢掉了 0.8 公斤，浪费率 19%。"
+    "相当于少排放 5.2 公斤二氧化碳，约等于少开 35 公里车。"
     "临期的鸡胸肉和番茄被你及时吃完，这部分做得最好；"
     "下周三记得先处理冰箱门上的酸奶。"
     f"（{DISCLAIMER_CARBON}。）"
@@ -125,6 +128,11 @@ def _message_text(message: Any) -> str:
     return ""
 
 
+def _wants(messages: list[dict], words: tuple[str, ...]) -> bool:
+    haystack = " ".join(_message_text(message) for message in messages).lower()
+    return any(word in haystack for word in words)
+
+
 def _wants_recipes(messages: list[dict], schema: type[BaseModel] | None) -> bool:
     keywords = ("菜谱", "推荐", "recipe", "suggest", "排序", "compose", "recommend")
     haystack = (schema.__name__ if schema is not None else "") + " ".join(
@@ -132,6 +140,10 @@ def _wants_recipes(messages: list[dict], schema: type[BaseModel] | None) -> bool
     )
     lowered = haystack.lower()
     return any(word in lowered for word in keywords)
+
+
+CONSTRAINT_KEYWORDS = ("意图", "servings", "人数", "口味", "constraint")
+PLAN_KEYWORDS = ("配餐", "饮食计划", "meal plan", "mealplan", "几天吃")
 
 
 def _defaults_for(schema: type[BaseModel]) -> dict[str, Any] | None:
@@ -164,21 +176,45 @@ class MockProvider:
         schema: type[BaseModel] | None = None,
         timeout: float = config.LLM_TIMEOUT_SECONDS,
     ) -> dict[str, Any]:
-        if schema is not None and not _wants_recipes(messages, schema):
-            defaults = _defaults_for(schema)
-            if defaults is not None:
-                return defaults
+        """与真实 provider 同一套语义：校验 → 重试 1 次 → 仍不合法就明确报错。
 
-        fixture = _load_fixture(FIXTURE_SUGGEST)
-        candidate = fixture if isinstance(fixture, dict) else _fallback_suggest()
-        validated = _validate(schema, candidate)
-        if validated is not None:
-            return validated
-        if schema is not None:
+        审查缺陷 §mock-2：旧实现在 schema 校验失败时直接返回候选数据，
+        且无 schema 时一律返回菜谱推荐（understand 步骤会拿到错的 JSON）。
+        """
+        candidate = self._pick_payload(messages, schema)
+        for _attempt in range(config.LLM_RETRY_TIMES + 1):
+            validated = _validate(schema, candidate)
+            if validated is not None:
+                return validated
+            if schema is not None:
+                defaults = _defaults_for(schema)
+                if defaults is not None:
+                    return defaults
+        raise AppError(
+            "llm_invalid_json",
+            "mock 回放数据与 schema 不匹配（请检查 app/data/fixtures）",
+            502,
+        )
+
+    def _pick_payload(
+        self, messages: list[dict], schema: type[BaseModel] | None
+    ) -> dict[str, Any]:
+        """按提示词意图挑一份回放数据，顺序不能乱：约束 > 计划 > 菜谱。"""
+        if schema is not None and _defaults_for(schema) is not None and not _wants_recipes(
+            messages, schema
+        ):
             defaults = _defaults_for(schema)
             if defaults is not None:
                 return defaults
-        return candidate
+        if _wants(messages, CONSTRAINT_KEYWORDS):
+            return {"max_minutes": 30, "servings": 1, "taste": None, "note": "mock：按输入参数执行"}
+        if _wants(messages, PLAN_KEYWORDS):
+            fixture = _load_fixture(FIXTURE_PLAN)
+            if isinstance(fixture, dict):
+                return fixture
+            return {"days": [], "shopping": [], "warnings": ["mock 未配置 plan.json"]}
+        fixture = _load_fixture(FIXTURE_SUGGEST)
+        return fixture if isinstance(fixture, dict) else _fallback_suggest()
 
     async def chat_text(
         self,

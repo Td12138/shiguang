@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-export type NavIconName = 'home' | 'camera' | 'pot' | 'ledger' | 'report';
+export type NavIconName = 'home' | 'camera' | 'calendar' | 'pot' | 'ledger' | 'report';
 
 const PATHS: Record<NavIconName, ReactNode> = {
   home: (
@@ -20,6 +20,13 @@ const PATHS: Record<NavIconName, ReactNode> = {
       <path d="M4 10h16v5a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-5Z" />
       <path d="M2.5 10h19" />
       <path d="M9 6.5c0-1 1-1.5 1-2.5M14 6.5c0-1 1-1.5 1-2.5" />
+    </>
+  ),
+  calendar: (
+    <>
+      <rect x="4" y="6" width="16" height="14" rx="2.5" />
+      <path d="M4 10.5h16M9 4v3.5M15 4v3.5" />
+      <path d="M8 14h2.5M13.5 14H16M8 17h2.5" />
     </>
   ),
   ledger: (

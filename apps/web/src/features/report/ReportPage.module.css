@@ -1,0 +1,76 @@
+.loading {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.loadingHint {
+  color: var(--color-text-faint);
+  font-size: var(--fs-1);
+}
+
+.stream {
+  min-height: 120px;
+  padding: var(--space-1) 0;
+}
+
+.paragraph {
+  margin-bottom: var(--space-1);
+  color: var(--color-text);
+  font-size: var(--fs-3);
+  line-height: 1.75;
+}
+
+.cursor {
+  display: inline-block;
+  width: 8px;
+  height: 18px;
+  vertical-align: -3px;
+  background: var(--color-primary);
+  animation: blink 900ms steps(2, start) infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.footnote {
+  margin-top: var(--space-2);
+  color: var(--color-text-faint);
+  font-size: var(--fs-1);
+}
+
+.fallbackGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.fallbackItem {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.fallbackLabel {
+  color: var(--color-text-faint);
+  font-size: var(--fs-1);
+}
+
+.fallbackValue {
+  font-size: var(--fs-5);
+  font-weight: var(--fw-bold);
+  color: var(--color-primary-deep);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 767px) {
+  .fallbackGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-1);
+  }
+}

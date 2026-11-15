@@ -4,12 +4,23 @@
  * 页面据此渲染「演示数据」提示条 —— 不静默假装真实数据（契约 §10.5）。
  * 数据本体在 fixtures.ts / fixtures-recipes.ts。
  */
-import { getAgentRun, getStatsSummary, listInventory, suggestRecipes } from './client';
-import { MOCK_AGENT_RUN, MOCK_INVENTORY } from './fixtures';
+import { createMealPlan, getAgentRun, getStatsSummary, listInventory, recognizeImage, suggestRecipes } from './client';
+import { MOCK_AGENT_RUN, MOCK_INVENTORY, MOCK_RECOGNITION } from './fixtures';
+import { MOCK_PLAN } from './fixtures-plan';
 import { MOCK_STATS, MOCK_SUGGESTION } from './fixtures-recipes';
-import type { AgentRun, InventoryItem, Sourced, StatsSummary, SuggestResponse } from './types';
+import type {
+  AgentRun,
+  InventoryItem,
+  MealPlan,
+  PlanRequest,
+  RecognitionResult,
+  Sourced,
+  StatsSummary,
+  SuggestResponse,
+} from './types';
 
 export { MOCK_AGENT_RUN, MOCK_INVENTORY, MOCK_RECOGNITION, MOCK_RUN_ID } from './fixtures';
+export { MOCK_PLAN, MOCK_PLAN_RUN_ID } from './fixtures-plan';
 export { MOCK_STATS, MOCK_SUGGESTION } from './fixtures-recipes';
 
 /** 真实请求失败 → 回落 mock，并标记 demo；成功路径原样返回 */
@@ -56,5 +67,21 @@ export function loadStats(range = '30d'): Promise<Sourced<StatsSummary>> {
   return withDemoFallback<StatsSummary>(
     () => getStatsSummary(range),
     () => MOCK_STATS,
+  );
+}
+
+/** 拍照识别：后端不通时回放内置样例，页面必须显示「演示数据」 */
+export function loadRecognition(file: File): Promise<Sourced<RecognitionResult>> {
+  return withDemoFallback<RecognitionResult>(
+    () => recognizeImage(file),
+    () => MOCK_RECOGNITION,
+  );
+}
+
+/** §6.8：后端 /api/plan/meals 未就绪时回落样例计划 */
+export function loadPlan(body: PlanRequest): Promise<Sourced<MealPlan>> {
+  return withDemoFallback<MealPlan>(
+    () => createMealPlan(body),
+    () => MOCK_PLAN,
   );
 }

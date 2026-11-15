@@ -19,3 +19,5 @@ data/out/
 apps/server/data/
 *.log
 .DS_Store
+
+samples/

@@ -68,6 +68,9 @@ export interface CreateInventoryItemInput {
   unit: string;
   expires_at: string;
   confidence?: number;
+  /** 识别阶段匹配到的食材库 id；带上才能进碳账 */
+  item_id?: string | null;
+  note?: string;
 }
 
 export interface CreateInventoryRequest {
@@ -86,7 +89,12 @@ export interface UpdateInventoryInput {
   note?: string;
 }
 
-/** consume / discard 的返回体契约只约定语义，此处用宽松结构承接 */
+/** consume 返回整条库存 + 本次扣减克数（apps/server/app/domain/inventory.py） */
+export interface ConsumeResult extends InventoryItem {
+  consumed_grams: number;
+}
+
+/** discard 的返回体契约只约定语义，此处用宽松结构承接 */
 export interface InventoryOperationResult {
   id: string;
   status: string;
@@ -97,96 +105,5 @@ export interface InventoryOperationResult {
 
 export type DiscardReason = 'forgot' | 'spoiled' | 'too_much';
 
-/* ---------------------------------------------------------------- §6.4 菜谱 */
-
-/** 引用来源：`recipe:<id>` / `tip:<n>`（契约 §8）；text 为可选的原文摘录 */
-export interface Citation {
-  source: string;
-  locator: string;
-  text?: string;
-}
-
-export interface MissingIngredient {
-  name: string;
-  optional: boolean;
-}
-
-export interface RecipeRecommendation {
-  recipe_id: string;
-  title: string;
-  minutes: number;
-  reason: string;
-  missing: MissingIngredient[];
-  citations: Citation[];
-  /** 0–1 排序分 */
-  score: number;
-}
-
-export interface SuggestRequest {
-  use: string[];
-  max_minutes?: number;
-  limit?: number;
-}
-
-/** §6.7：suggest 必须建一条 agent_runs 并在返回体带 run_id */
-export interface SuggestResponse {
-  run_id: string;
-  recommendations: RecipeRecommendation[];
-  warnings?: string[];
-}
-
-/* ---------------------------------------------------------------- §6.5 统计 */
-
-export interface StatsTrendPoint {
-  date: string;
-  thrown: number;
-  saved: number;
-}
-
-export interface StatsEquivalents {
-  car_km: number;
-  trees_days: number;
-}
-
-export interface StatsSummary {
-  waste_rate: number;
-  thrown_grams: number;
-  saved_grams: number;
-  carbon_saved_kg: number;
-  money_saved: number;
-  equivalents: StatsEquivalents;
-  trend: StatsTrendPoint[];
-}
-
-/* ---------------------------------------------------------------- §6.6 周报 */
-
-export type WeeklyReportEvent =
-  | { type: 'delta'; text: string }
-  | { type: 'citations'; items: Citation[] }
-  | { type: 'done' };
-
-/* ------------------------------------------------------------ §6.7 Agent trace */
-
-export type AgentStepStatus = 'ok' | 'error' | 'running' | 'pending';
-
-export interface AgentStep {
-  name: string;
-  status: AgentStepStatus;
-  started_at: string;
-  ms: number;
-  summary: string;
-}
-
-export interface AgentRun {
-  id: string;
-  state: string;
-  steps: AgentStep[];
-}
-
-/* ------------------------------------------------------- 前端内部：数据来源标记 */
-
-/** demo=true 表示数据来自 mock，页面必须显示「演示数据」提示条 */
-export interface Sourced<T> {
-  data: T;
-  demo: boolean;
-}
+/* AI 相关类型（菜谱 / 计划 / Agent / 周报）见 types-ai.ts，此处统一转出 */
+export * from './types-ai';

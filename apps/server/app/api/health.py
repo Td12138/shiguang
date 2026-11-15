@@ -11,7 +11,6 @@ from typing import Any
 
 from fastapi import APIRouter
 
-from app import config
 from app.core.provider import get_provider
 
 LOGGER = logging.getLogger(__name__)
@@ -29,12 +28,16 @@ def _db_status() -> str:
         module = importlib.import_module("app.db.conn")
     except ImportError:
         return DB_MISSING
+    connection = None
     try:
         connection = module.get_conn()
         connection.execute("SELECT 1").fetchone()
     except Exception:  # 初始化未完成 / 表缺失 都只降级不抛
         LOGGER.warning("健康检查：数据库不可用", exc_info=True)
         return DB_ERROR
+    finally:
+        if connection is not None:
+            connection.close()
     return DB_OK
 
 
@@ -42,8 +45,7 @@ def _db_status() -> str:
 async def health() -> dict[str, Any]:
     db = _db_status()
     return {
-        "ok": db != DB_ERROR,
+        "ok": db == DB_OK,
         "provider": get_provider().name,
         "db": db,
-        "port": config.PORT,
     }

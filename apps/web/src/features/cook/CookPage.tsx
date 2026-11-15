@@ -1,19 +1,139 @@
-import { PagePlaceholder } from '@/components/layout/PagePlaceholder';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import type { RecipeRecommendation } from '@/lib/api';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { DemoBanner } from '@/components/ui/DemoBanner';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Notice } from '@/components/ui/Notice';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { useToast } from '@/components/ui/Toast';
+import { ConsumeModal } from './ConsumeModal';
+import { IngredientPicker } from './IngredientPicker';
+import { SuggestionSection } from './SuggestionSection';
+import { useCook } from './useCook';
+import styles from './CookPage.module.css';
+
+/** 「临期」口径与 useCook 一致：3 天内到期 */
+const URGENT_DAYS = 3;
 
 export default function CookPage() {
+  const cook = useCook();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const [pending, setPending] = useState<RecipeRecommendation | null>(null);
+
+  const namesOf = (ids: string[]): string =>
+    ids.map((id) => cook.inventory.find((item) => item.id === id)?.name ?? '库存条目').join('、');
+
+  const finish = async (recipe: RecipeRecommendation, manualIds: string[]): Promise<void> => {
+    const outcome = await cook.consume(recipe, manualIds);
+    if (outcome.ok) toast(`已扣减：${namesOf(outcome.consumed)}`, 'success');
+    else toast(outcome.message ?? '扣减失败', 'error');
+  };
+
+  const handleCooked = async (recipe: RecipeRecommendation): Promise<void> => {
+    const hasIds = (recipe.uses ?? []).some((use) => use.inventory_id);
+    if (hasIds) await finish(recipe, []);
+    else setPending(recipe);
+  };
+
   return (
-    <PagePlaceholder
-      status="菜谱模块接入中"
-      title="选食材，换一顿饭"
-      description="AI 先读临期库存，再检索菜谱，给出理由、缺料提示与可回看的引用；没有匹配时明确说没有。"
-      capabilities={[
-        '按临期程度推荐，先消耗快坏的',
-        '缺料必买与可选配料分开展示',
-        '每条结论挂引用角标，点击看原文',
-        '展开 Agent 步骤时间线，复现推理过程',
-      ]}
-      endpoints={['POST /api/recipes/suggest', 'GET /api/agent/runs/{id}']}
-      footnote="菜谱只是消耗手段，主轴始终是过期倒计时。"
-    />
+    <div className="page-stack">
+      {cook.demo ? (
+        <DemoBanner
+          message="库存或建议接口没有响应，页面上的食材与菜谱来自内置样例；扣减只在真实后端上生效。"
+          onRetry={cook.reset}
+        />
+      ) : null}
+
+      {cook.error ? (
+        <Notice
+          tone="error"
+          title="生成建议失败"
+          action={
+            <Button variant="secondary" size="sm" onClick={() => void cook.suggest()}>
+              重试
+            </Button>
+          }
+        >
+          {cook.error}
+        </Notice>
+      ) : null}
+
+      {cook.loading ? (
+        <Card title="① 选食材" subtitle="正在读取冰箱库存">
+          <Skeleton lines={2} height="14px" />
+          <div className={styles.chipSkeleton}>
+            <Skeleton width="96px" height="34px" radius="var(--radius-pill)" />
+            <Skeleton width="120px" height="34px" radius="var(--radius-pill)" />
+            <Skeleton width="88px" height="34px" radius="var(--radius-pill)" />
+          </div>
+        </Card>
+      ) : cook.inventory.length === 0 ? (
+        <Card>
+          <EmptyState
+            title="冰箱里还没有食材"
+            description="先拍一张冰箱照片入库，再让 AI 按临期顺序安排今天吃什么。"
+            action={<Button onClick={() => navigate('/capture')}>去拍照入库</Button>}
+          />
+        </Card>
+      ) : (
+        <Card
+          title="① 选食材"
+          subtitle={`默认选中 ${cook.inventory.filter((item) => item.days_left <= URGENT_DAYS).length} 样 3 天内到期的食材；也可以自己挑`}
+          actions={
+            <div className={styles.pickerActions}>
+              <Button variant="ghost" size="sm" onClick={cook.selectExpiring}>
+                选临期
+              </Button>
+              <Button variant="ghost" size="sm" onClick={cook.clearSelection}>
+                清空
+              </Button>
+            </div>
+          }
+        >
+          <IngredientPicker
+            inventory={cook.inventory}
+            selected={cook.selected}
+            onToggle={cook.toggle}
+            disabled={cook.suggesting}
+          />
+          <div className={styles.footer}>
+            <p className={styles.hint}>
+              已选 {cook.selected.length} 样；建议在 30 分钟内能做完，理由与引用都可核对。
+            </p>
+            <Button
+              onClick={() => void cook.suggest()}
+              loading={cook.suggesting}
+              disabled={cook.selected.length === 0}
+            >
+              给我方案
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      <SuggestionSection
+        suggestion={cook.suggestion}
+        suggesting={cook.suggesting}
+        consuming={cook.consuming}
+        doneIds={cook.doneIds}
+        onSuggest={() => void cook.suggest()}
+        onCooked={(recipe) => void handleCooked(recipe)}
+      />
+
+      <ConsumeModal
+        recipe={pending}
+        inventory={cook.inventory}
+        onClose={() => setPending(null)}
+        onConfirm={(ids) => {
+          const recipe = pending;
+          setPending(null);
+          if (recipe) void finish(recipe, ids);
+        }}
+        submitting={cook.consuming}
+      />
+    </div>
   );
 }

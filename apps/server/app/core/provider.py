@@ -9,8 +9,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+import ssl
+import warnings
 from collections.abc import AsyncIterator
 from typing import Any, Protocol, runtime_checkable
 
@@ -24,9 +27,28 @@ from app.core.safety import truncate
 
 LOGGER = logging.getLogger(__name__)
 
+
+def ssl_verify() -> object:
+    """TLS 校验策略。
+
+    - ``os``（默认）：系统信任库，可穿越本地 TLS 代理
+    - ``strict``：certifi，标准校验
+    - ``off``：仅本地开发用——本机代理会替换证书链，OpenSSL 校验间歇失败；
+      服务器部署请保持 os/strict，不要用 off
+    """
+    mode = config.SSL_VERIFY
+    if mode == "strict":
+        return True
+    if mode == "off":
+        warnings.filterwarnings("ignore", message="Unverified HTTPS request")
+        return False
+    return ssl.create_default_context()
+
 JSON_MODE: dict[str, str] = {"type": "json_object"}
 _JSON_MODE_UNSUPPORTED = "response_format"  # 上游报错里出现即视为不支持 JSON mode
 _CODE_VERSION = "1"
+CONNECT_ATTEMPTS = 2
+CONNECT_RETRY_DELAY_SECONDS = 0.8
 
 
 @runtime_checkable
@@ -73,6 +95,42 @@ def extract_json(text: str) -> Any:
     raise ValueError("no json object in model output")
 
 
+def _flatten_vision_items(items: list[Any]) -> list[dict[str, Any]]:
+    """递归拆掉套娃：``[{"items":[...]}, ...]`` → 真正的食材条目列表。"""
+    flat: list[dict[str, Any]] = []
+    for row in items:
+        if not isinstance(row, dict):
+            continue
+        inner = row.get("items")
+        if isinstance(inner, list):
+            flat.extend(_flatten_vision_items(inner))
+        else:
+            flat.append(row)
+    return flat
+
+
+def _normalize_vision_payload(data: Any) -> dict[str, Any] | None:
+    """把视觉模型的各种返回姿势统一成 ``{"items": [...]}``。
+
+    实测（zhipu glm-4v-flash）至少三种：裸数组、``{"items":[...]}``、
+    ``{"items":[{"items":[...]}]}`` 套娃，甚至同时出现，这里递归收口。
+    """
+    if isinstance(data, list):
+        return {
+            "items": _flatten_vision_items(data),
+            "warnings": ["模型未按要求包裹 items 字段，已自动兼容"],
+        }
+    if not isinstance(data, dict):
+        return None
+    items = data.get("items")
+    if isinstance(items, list):
+        return {
+            "items": _flatten_vision_items(items),
+            "warnings": [str(x) for x in data.get("warnings", []) if isinstance(x, str)],
+        }
+    return None
+
+
 class OpenAICompatibleProvider:
     """zhipu / dashscope / openai / local 共用实现。"""
 
@@ -104,17 +162,36 @@ class OpenAICompatibleProvider:
         return httpx.Timeout(timeout, connect=config.LLM_CONNECT_TIMEOUT_SECONDS)
 
     async def _post(self, payload: dict[str, Any], timeout: float) -> str:
-        """发一次请求，返回 ``choices[0].message.content``。异常统一转 AppError(502)。"""
-        try:
-            async with httpx.AsyncClient(timeout=self._timeout(timeout)) as client:
-                response = await client.post(self._url(), json=payload, headers=self._headers())
-        except httpx.TimeoutException as exc:
-            LOGGER.warning("provider=%s 超时 %.0fs", self.name, timeout)
-            raise AppError("llm_timeout", f"模型服务超时（{self.name}）", status=502) from exc
-        except httpx.HTTPError as exc:
-            LOGGER.warning("provider=%s 连接失败 %s", self.name, type(exc).__name__)
-            raise AppError("llm_unreachable", f"模型服务连接失败（{self.name}）", status=502) from exc
+        """发一次请求，返回 ``choices[0].message.content``。异常统一转 AppError(502)。
 
+        ConnectError 重试一次：Windows 上首次 TLS 握手偶发
+        `Missing Authority Key Identifier`，第二次即正常（Linux 服务端不受影响）。
+        """
+        response: httpx.Response | None = None
+        for attempt in range(CONNECT_ATTEMPTS):
+            try:
+                async with httpx.AsyncClient(
+                    timeout=self._timeout(timeout), verify=ssl_verify()
+                ) as client:
+                    response = await client.post(self._url(), json=payload, headers=self._headers())
+                break
+            except httpx.TimeoutException as exc:
+                LOGGER.warning("provider=%s 超时 %.0fs", self.name, timeout)
+                raise AppError("llm_timeout", f"模型服务超时（{self.name}）", status=502) from exc
+            except httpx.ConnectError as exc:
+                if attempt + 1 < CONNECT_ATTEMPTS:
+                    LOGGER.warning(
+                        "provider=%s 首次连接失败，%s 后重试", self.name, CONNECT_RETRY_DELAY_SECONDS
+                    )
+                    await asyncio.sleep(CONNECT_RETRY_DELAY_SECONDS)
+                    continue
+                LOGGER.warning("provider=%s 连接失败 %s", self.name, type(exc).__name__)
+                raise AppError("llm_unreachable", f"模型服务连接失败（{self.name}）", status=502) from exc
+            except httpx.HTTPError as exc:
+                LOGGER.warning("provider=%s 连接失败 %s", self.name, type(exc).__name__)
+                raise AppError("llm_unreachable", f"模型服务连接失败（{self.name}）", status=502) from exc
+
+        assert response is not None
         if response.status_code >= 400:
             body = truncate(response.text, 300)
             LOGGER.warning("provider=%s HTTP %s：%s", self.name, response.status_code, body)
@@ -243,8 +320,9 @@ class OpenAICompatibleProvider:
                 last_error = "no_json"
                 LOGGER.warning("provider=%s 视觉第 %d 次返回非 JSON", self.name, attempt + 1)
                 continue
-            if isinstance(data, dict):
-                return data
+            normalized = _normalize_vision_payload(data)
+            if normalized is not None:
+                return normalized
             last_error = "not_object"
         raise AppError("llm_invalid_json", "视觉模型未返回可解析的结构化结果", status=502, detail=last_error)
 
@@ -257,7 +335,7 @@ class OpenAICompatibleProvider:
             "stream": True,
         }
         try:
-            async with httpx.AsyncClient(timeout=self._timeout(config.LLM_TIMEOUT_SECONDS)) as client:
+            async with httpx.AsyncClient(timeout=self._timeout(config.LLM_TIMEOUT_SECONDS), verify=ssl_verify()) as client:
                 async with client.stream(
                     "POST", self._url(), json=payload, headers=self._headers()
                 ) as response:
@@ -316,6 +394,10 @@ def build_provider() -> LLMProvider:
     if name == "mock" or not (config.LLM_BASE_URL and config.LLM_BASE_URL.startswith("http")):
         if name != "mock":
             LOGGER.warning("provider=%s 缺少可用 base_url，回退 mock", name)
+        return MockProvider()
+    # 审查缺陷：非本地 provider 且 key 为空时必须降级，否则每个请求都带空 Authorization 真发出去 → 全链路 502
+    if name != "local" and not config.LLM_API_KEY:
+        LOGGER.warning("provider=%s 未配置 SHIGUANG_LLM_API_KEY，已回退 mock（否则请求会被上游 401）", name)
         return MockProvider()
     LOGGER.info("provider=%s base_url=%s model=%s vision=%s", name, config.LLM_BASE_URL, config.LLM_MODEL, config.VLM_MODEL)
     return OpenAICompatibleProvider(

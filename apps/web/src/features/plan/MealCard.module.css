@@ -1,0 +1,97 @@
+.card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slot {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-size: var(--fs-1);
+  font-weight: var(--fw-bold);
+}
+
+.title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--fs-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.minutes {
+  flex-shrink: 0;
+  color: var(--color-text-faint);
+  font-size: var(--fs-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.uses,
+.missing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  font-size: var(--fs-1);
+}
+
+.key {
+  color: var(--color-text-faint);
+}
+
+.use {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-deep);
+}
+
+.use em {
+  font-style: normal;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.need {
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-soft);
+  color: #9a4f14;
+}
+
+.optional {
+  color: var(--color-text-faint);
+}
+
+.allGood {
+  color: var(--color-primary);
+}
+
+.foot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--color-border);
+}
+
+.citeLabel {
+  color: var(--color-text-faint);
+  font-size: var(--fs-1);
+}

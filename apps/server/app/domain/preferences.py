@@ -247,6 +247,38 @@ def _matches(name: str, text: str) -> bool:
     return len(stripped) >= 2 and len(name) >= 2 and stripped in name
 
 
+# 忌口表达里常见的动词/程度词，抽出后剩下的就是食材名
+AVOID_PREFIXES: tuple[str, ...] = (
+    "不喜欢吃", "不爱吃", "不能吃", "不可以吃", "不要吃", "不吃", "不吃任何",
+    "不要", "别放", "不放", "不加", "忌口", "忌", "讨厌", "过敏于", "对", "怕",
+)
+AVOID_SUFFIXES: tuple[str, ...] = ("过敏", "不耐受", "一律不要", "都不要")
+
+
+def avoid_terms(prefs: list[dict] | None = None) -> set[str]:
+    """从忌口文本里直接抽出食材名，不依赖库存词表。
+
+    审查发现：仅用库存名去匹配时，用户忌口的食材本来就不在库存里，
+    结果 blocked 为空 → 整个硬约束失效。这里补一条独立词表。
+    """
+    rows = prefs if prefs is not None else active_preferences()
+    terms: set[str] = set()
+    for row in rows:
+        if row["kind"] != KIND_AVOID or not row["active"]:
+            continue
+        text = str(row["text"]).strip()
+        for prefix in AVOID_PREFIXES:
+            if text.startswith(prefix):
+                text = text[len(prefix) :]
+        for suffix in AVOID_SUFFIXES:
+            if text.endswith(suffix):
+                text = text[: -len(suffix)]
+        text = text.strip("，。,.、 ")
+        if len(text) >= 2:
+            terms.add(text)
+    return terms
+
+
 def blocked_names(
     vocabulary: list[str],
     *,

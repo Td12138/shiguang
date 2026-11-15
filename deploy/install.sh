@@ -28,6 +28,7 @@ SHIGUANG_LLM_PROVIDER=mock
 SHIGUANG_LLM_MODEL=glm-4-flash
 SHIGUANG_VLM_MODEL=glm-4v-flash
 SHIGUANG_DB_PATH=/opt/shiguang/shared/app.db
+SHIGUANG_UPLOAD_DIR=/opt/shiguang/shared/upload
 SHIGUANG_PORT=8720
 SHIGUANG_SSL_VERIFY=os
 SHIGUANG_BASIC_AUTH=demo:changeme

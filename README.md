@@ -48,8 +48,11 @@ Agent 五步：`understand → plan → retrieve → compose → verify`，每�
 前置：Python 3.12+、Node 20+、pnpm。
 
 ```powershell
-# 后端
+# 后端（首次需建虚拟环境并装依赖）
 cd apps/server
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
 Copy-Item .env.example .env      # 按需填 SHIGUANG_LLM_PROVIDER / SHIGUANG_LLM_API_KEY
 python -m uvicorn app.main:app --port 8720
 
@@ -72,7 +75,7 @@ python scripts/seed_demo.py --reset
 
 ```powershell
 cd apps/server
-python -m pytest -q                # 44 项
+python -m pytest -q                # 90 项
 ```
 
 **真实模型自测**（会调用一次视觉接口）：

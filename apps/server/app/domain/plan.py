@@ -147,10 +147,25 @@ def _match_stock(name: str, keys: list[str]) -> str | None:
 def _split_inventory(items: list[dict]) -> dict:
     usable = [item for item in items if int(item.get("days_left", 0)) >= 0]
     expired = [item for item in items if int(item.get("days_left", 0)) < 0]
+    # 同名多批库存必须合并数量，否则计划会少算（审查：两批生菜 1+2 只认 2 颗）
+    stock: dict[str, dict] = {}
+    for item in usable:
+        name = item["name"]
+        if name in stock:
+            merged = dict(stock[name])
+            merged["qty"] = float(merged.get("qty") or 0) + float(item.get("qty") or 0)
+            merged["grams"] = float(merged.get("grams") or 0) + float(item.get("grams") or 0)
+            merged["days_left"] = min(
+                int(merged.get("days_left", 0)), int(item.get("days_left", 0))
+            )
+            merged["ids"] = [*merged.get("ids", []), item.get("id")]
+            stock[name] = merged
+        else:
+            stock[name] = {**item, "ids": [item.get("id")]}
     return {
         "usable": usable,
         "expired": expired,
-        "stock": {item["name"]: item for item in usable},
+        "stock": stock,
         "expiring": {
             item["name"] for item in usable if int(item.get("days_left", 0)) <= EXPIRING_DAYS
         },
@@ -792,6 +807,8 @@ async def build_plan(
         blocked = preference_store.blocked_names(
             [item["name"] for item in snapshot["usable"]], prefs=prefs
         )
+        # 忌口食材通常不在库存里，必须独立从偏好文本抽词，否则硬约束会整条失效
+        blocked |= preference_store.avoid_terms(prefs)
 
         trace.add(
             STEP_PLAN,
@@ -1476,6 +1493,8 @@ async def revise(plan_id: str, instruction: str, *, provider=None) -> dict:
         blocked = preference_store.blocked_names(
             [item["name"] for item in snapshot["usable"]], prefs=prefs
         )
+        # 忌口食材通常不在库存里，必须独立从偏好文本抽词，否则硬约束会整条失效
+        blocked |= preference_store.avoid_terms(prefs)
 
         # 指令与已记忆偏好冲突：本次指令为准（契约 §6.9 规则 2）
         for conflict in preference_store.instruction_conflicts(text, vocabulary, prefs):

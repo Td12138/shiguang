@@ -22,7 +22,8 @@ ENV_FILE = SERVER_DIR / ".env"
 DATA_DIR = APP_DIR / "data"
 FIXTURES_DIR = DATA_DIR / "fixtures"
 RUNTIME_DIR = SERVER_DIR / "data"
-UPLOAD_DIR = RUNTIME_DIR / "upload"
+# 上传目录必须可覆盖：发布目录每次切换软链，写进 releases/ 的图会随版本孤立
+UPLOAD_DIR = Path(env_str("SHIGUANG_UPLOAD_DIR", str(RUNTIME_DIR / "upload")))
 
 
 def load_env_file(path: Path) -> dict[str, str]:

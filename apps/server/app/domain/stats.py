@@ -181,6 +181,11 @@ def summary(range_value: str = DEFAULT_RANGE) -> dict:
             "car_km": round(carbon_saved / CARBON_KG_PER_CAR_KM),
             "trees_days": round(carbon_saved / CARBON_KG_PER_TREE_DAY),
         },
+        # 口径随数据下发，前端不再写死因子（避免「351 公里 × 0.15」算不回去）
+        "factors": {
+            "car_kg_per_km": CARBON_KG_PER_CAR_KM,
+            "tree_kg_per_day": round(CARBON_KG_PER_TREE_DAY, 4),
+        },
         "trend": _trend(days, saved_by_day, thrown_by_day),
     }
 

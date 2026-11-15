@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_QTY = 1.0
 DEFAULT_AVG_GRAMS = 200.0
-DEFAULT_CARBON_KG_PER_KG = 1.0
-DEFAULT_PRICE_PER_KG = 5.0
+DEFAULT_CARBON_KG_PER_KG = 0.0  # 库外食材不计碳账（与界面承诺一致：matched:false 不进碳账）
+DEFAULT_PRICE_PER_KG = 0.0  # 同理不计金额，避免编造价钱
 DEFAULT_SHELF_LIFE_DAYS = 5
 DEFAULT_UNIT = "份"
 

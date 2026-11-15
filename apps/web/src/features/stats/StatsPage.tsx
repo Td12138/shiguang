@@ -105,12 +105,16 @@ export default function StatsPage() {
               <div className={styles.equivalent}>
                 <span className={styles.eqValue}>{data.equivalents.car_km}</span>
                 <span className={styles.eqLabel}>公里不用开车</span>
-                <span className={styles.eqHint}>按 0.15 kg CO₂e / 公里估算</span>
+                <span className={styles.eqHint}>
+                  按 {data.factors?.car_kg_per_km ?? 0.137} kg CO₂e / 公里估算
+                </span>
               </div>
               <div className={styles.equivalent}>
                 <span className={styles.eqValue}>{data.equivalents.trees_days}</span>
                 <span className={styles.eqLabel}>棵树一天的吸收量</span>
-                <span className={styles.eqHint}>按 0.06 kg CO₂e / 树·天估算</span>
+                <span className={styles.eqHint}>
+                  按 {data.factors?.tree_kg_per_day ?? 0.0438} kg CO₂e / 树·天估算
+                </span>
               </div>
               <div className={styles.equivalent}>
                 <span className={styles.eqValue}>{formatPercent(data.waste_rate)}</span>

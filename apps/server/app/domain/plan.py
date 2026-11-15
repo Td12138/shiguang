@@ -229,6 +229,26 @@ def _expired_warnings(snapshot: dict) -> list[str]:
 # 分配（贪心 + 统一 materialize）
 # --------------------------------------------------------------------------- #
 
+MASS_UNITS = ("克", "g", "毫升", "ml")
+KILO_UNITS = ("千克", "kg", "升", "l")
+
+
+def _need_in_stock_unit(need: float, ingredient_unit: str, stock_row: dict) -> float:
+    """菜谱用毫升/克、库存用盒/瓶时，按库存单件重量折算，避免「牛奶 249 盒」。"""
+    stock_unit = str(stock_row.get("unit") or "").strip()
+    ing_unit = str(ingredient_unit or "").strip().lower()
+    if not stock_unit or not ing_unit or stock_unit == ing_unit:
+        return need
+    if ing_unit in MASS_UNITS and stock_unit not in MASS_UNITS:
+        qty = float(stock_row.get("qty") or 0.0)
+        grams = float(stock_row.get("grams") or 0.0)
+        if qty > 0 and grams > 0:
+            per_unit = grams / qty
+            grams_need = need * (1000 if ing_unit in KILO_UNITS else 1)
+            return grams_need / per_unit
+    return need
+
+
 def _deduct(
     recipe: dict, remaining: dict[str, float], stock: dict[str, dict], servings: int
 ) -> tuple[list[dict], list[dict], list[dict]]:
@@ -245,6 +265,8 @@ def _deduct(
         optional = bool(ingredient.get("optional"))
         key = _match_stock(name, list(remaining))
         stock_row = stock.get(key) or {}
+        if key:
+            need = _need_in_stock_unit(need, str(ingredient.get("unit") or ""), stock_row)
         available = float(remaining.get(key, 0.0)) if key else 0.0
         unit = stock_row.get("unit") or ingredient.get("unit") or "份"
         take = min(need, available)

@@ -59,6 +59,12 @@ export interface StatsEquivalents {
   trees_days: number;
 }
 
+/** 碳当量口径，由后端下发，前端禁止写死 */
+export interface StatsFactors {
+  car_kg_per_km: number;
+  tree_kg_per_day: number;
+}
+
 export interface StatsSummary {
   waste_rate: number;
   thrown_grams: number;
@@ -67,9 +73,10 @@ export interface StatsSummary {
   money_saved: number;
   equivalents: StatsEquivalents;
   trend: StatsTrendPoint[];
-  /** 后端额外返回：区间标签（30d / 7d / all）与丢弃碳当量 */
+  /** 后端额外返回：区间标签（30d / 7d / all）、丢弃碳当量与换算口径 */
   range?: string;
   carbon_thrown_kg?: number;
+  factors?: StatsFactors;
 }
 
 /* ------------------------------------------------------------ §6.8 饮食计划 */

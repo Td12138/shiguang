@@ -95,6 +95,7 @@ python scripts/probe_vlm.py ..\..\samples\fridge-1.jpg
 | `SHIGUANG_VLM_MODEL` | 按预设 | 视觉模型 |
 | `SHIGUANG_EMBEDDING_PROVIDER` | `none` | `none` / `api` / `local`（BGE-M3） |
 | `SHIGUANG_DB_PATH` | `data/app.db` | SQLite 路径 |
+| `SHIGUANG_UPLOAD_DIR` | `data/upload` | 上传图片目录；部署时指向 `shared/upload`，切软链不丢图 |
 | `SHIGUANG_PORT` | `8720` | 服务端口 |
 | `SHIGUANG_WEB_DIST` | `apps/web/dist` | 前端构建产物（存在则托管并接管 `/`） |
 | `SHIGUANG_BASIC_AUTH` | 空 | `user:pass`，公网演示必填 |

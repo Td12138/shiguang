@@ -23,7 +23,8 @@ fi
 "${APP_ROOT}/venv/bin/pip" install --quiet --index-url "${PIP_INDEX}" -r "${RELEASE_DIR}/apps/server/requirements.txt"
 
 if [[ ! -f "${APP_ROOT}/shared/.env" ]]; then
-  cat > "${APP_ROOT}/shared/.env" <<'ENVEOF'
+  DEMO_PASS="$(head -c 12 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 16)"
+  cat > "${APP_ROOT}/shared/.env" <<ENVEOF
 SHIGUANG_LLM_PROVIDER=mock
 SHIGUANG_LLM_MODEL=glm-4-flash
 SHIGUANG_VLM_MODEL=glm-4v-flash
@@ -31,11 +32,12 @@ SHIGUANG_DB_PATH=/opt/shiguang/shared/app.db
 SHIGUANG_UPLOAD_DIR=/opt/shiguang/shared/upload
 SHIGUANG_PORT=8720
 SHIGUANG_SSL_VERIFY=os
-SHIGUANG_BASIC_AUTH=demo:changeme
+SHIGUANG_BASIC_AUTH=demo:${DEMO_PASS}
 SHIGUANG_RATE_LIMIT_PER_MIN=30
 ENVEOF
   chmod 600 "${APP_ROOT}/shared/.env"
-  echo "已生成 ${APP_ROOT}/shared/.env（请按需填 key 并改口令）"
+  echo "已生成 ${APP_ROOT}/shared/.env"
+  echo "演示站口令：demo / ${DEMO_PASS}   （请立刻记进台账，此口令只显示这一次）"
 fi
 
 install -m 644 "$(dirname "$0")/shiguang.service" /etc/systemd/system/shiguang.service

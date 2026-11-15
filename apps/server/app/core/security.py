@@ -25,6 +25,7 @@ LOGGER = logging.getLogger(__name__)
 AUTH_HEADER = "authorization"
 BASIC_PREFIX = "basic "
 RATE_LIMIT_EXEMPT_PATHS = config.RATE_LIMIT_EXEMPT_PATHS
+AUTH_EXEMPT_PATHS = ("/api/health",)  # 健康检查免认证：只返回 ok/provider/db，不含敏感信息
 BUCKET_CLEANUP_EVERY = 500  # 每 N 次请求清理一次空桶，避免长期运行内存只增不减
 
 
@@ -54,10 +55,11 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         self._served = 0
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        if self.auth is not None and not self._check_auth(request):
+        path = request.url.path
+        if self.auth is not None and path not in AUTH_EXEMPT_PATHS and not self._check_auth(request):
             return _unauthorized("需要登录后访问演示站")
 
-        if self.limit and request.url.path not in RATE_LIMIT_EXEMPT_PATHS and not self._allow(request):
+        if self.limit and path not in RATE_LIMIT_EXEMPT_PATHS and not self._allow(request):
             return JSONResponse(
                 status_code=429,
                 content={"code": "rate_limited", "message": "请求过于频繁，请稍后再试"},

@@ -1,10 +1,12 @@
 import type { ReactNode } from 'react';
 import type { InventoryItem } from '@/lib/api';
 import { resolveCategory } from '@/lib/categories';
+import { isStale } from '@/lib/freshness';
 import { expiryText } from '@/lib/format';
 import { Button } from './Button';
 import { ConfidenceBar } from './ConfidenceBar';
 import { ExpiryBadge } from './ExpiryBadge';
+import { StaleBadge } from './StaleBadge';
 import styles from './ItemCard.module.css';
 
 export interface ItemCardProps {
@@ -58,6 +60,9 @@ export function ItemCard({
             expiresAt={item.expires_at}
             size="sm"
           />
+          {isStale(item) && typeof item.stale_days === 'number' ? (
+            <StaleBadge days={item.stale_days} />
+          ) : null}
           {typeof item.confidence === 'number' ? (
             <ConfidenceBar value={item.confidence} compact />
           ) : null}

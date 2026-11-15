@@ -1,0 +1,45 @@
+.loading {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.rows {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-2) 0;
+}
+
+.warnings {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  padding-top: var(--space-2);
+  border-top: 1px dashed var(--color-border);
+}
+
+.hint {
+  flex: 1 1 260px;
+  color: var(--color-text-faint);
+  font-size: var(--fs-1);
+}
+
+@media (max-width: 767px) {
+  .footer {
+    display: grid;
+    gap: var(--space-1);
+  }
+
+  .footer > button {
+    width: 100%;
+  }
+}

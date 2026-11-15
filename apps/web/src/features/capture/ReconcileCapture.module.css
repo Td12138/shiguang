@@ -1,0 +1,91 @@
+.loading {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.warnings {
+  display: grid;
+  gap: 2px;
+  margin-bottom: var(--space-2);
+}
+
+.groups {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-2) 0;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  padding-top: var(--space-2);
+  border-top: 1px dashed var(--color-border);
+}
+
+.summary {
+  flex: 1 1 240px;
+  font-size: var(--fs-2);
+  color: var(--color-text);
+}
+
+.summary strong {
+  color: var(--color-primary-deep);
+  font-variant-numeric: tabular-nums;
+}
+
+.summarySub {
+  display: block;
+  color: var(--color-text-faint);
+  font-size: var(--fs-1);
+}
+
+.applied {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.applied div {
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+}
+
+.applied dt {
+  color: var(--color-text-faint);
+  font-size: var(--fs-1);
+}
+
+.applied dd {
+  margin: 0;
+  font-size: var(--fs-5);
+  font-weight: var(--fw-bold);
+  color: var(--color-primary-deep);
+  font-variant-numeric: tabular-nums;
+}
+
+.appliedNote {
+  margin: var(--space-2) 0;
+  color: var(--color-text-faint);
+  font-size: var(--fs-1);
+}
+
+@media (max-width: 767px) {
+  .footer {
+    display: grid;
+  }
+
+  .footer > button {
+    width: 100%;
+  }
+
+  .applied {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-1);
+  }
+}

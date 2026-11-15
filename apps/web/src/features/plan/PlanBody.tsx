@@ -8,10 +8,12 @@ import styles from './PlanBody.module.css';
 export interface PlanBodyProps {
   plan: MealPlan;
   inventoryTotal: number;
+  /** 食材名 → 未核验天数（§6.14），透传给每餐的配料角标 */
+  staleDays?: Record<string, number>;
 }
 
 /** 计划正文：覆盖率 → 提示 → 按天分栏 + 采购清单 */
-export function PlanBody({ plan, inventoryTotal }: PlanBodyProps) {
+export function PlanBody({ plan, inventoryTotal, staleDays }: PlanBodyProps) {
   return (
     <>
       <CoverageBar coverage={plan.coverage} inventoryTotal={inventoryTotal} />
@@ -29,7 +31,7 @@ export function PlanBody({ plan, inventoryTotal }: PlanBodyProps) {
       <div className={styles.layout}>
         <div className={styles.days}>
           {plan.days.map((day, index) => (
-            <PlanDayColumn key={day.date} day={day} index={index} />
+            <PlanDayColumn key={day.date} day={day} index={index} staleDays={staleDays} />
           ))}
         </div>
         <ShoppingList items={plan.shopping} />

@@ -6,10 +6,12 @@ import styles from './PlanDayColumn.module.css';
 export interface PlanDayColumnProps {
   day: PlanDay;
   index: number;
+  /** 食材名 → 未核验天数（§6.14） */
+  staleDays?: Record<string, number>;
 }
 
 /** 一天一栏：≥768px 并排三列，<768px 单列上下排 */
-export function PlanDayColumn({ day, index }: PlanDayColumnProps) {
+export function PlanDayColumn({ day, index, staleDays }: PlanDayColumnProps) {
   return (
     <section className={styles.column} aria-label={`第 ${index + 1} 天 ${dayLabel(day.date)}`}>
       <header className={styles.head}>
@@ -22,7 +24,11 @@ export function PlanDayColumn({ day, index }: PlanDayColumnProps) {
       ) : (
         <div className={styles.meals}>
           {day.meals.map((meal) => (
-            <MealCard key={`${day.date}-${meal.slot}-${meal.recipe_id}`} meal={meal} />
+            <MealCard
+              key={`${day.date}-${meal.slot}-${meal.recipe_id}`}
+              meal={meal}
+              staleDays={staleDays}
+            />
           ))}
         </div>
       )}

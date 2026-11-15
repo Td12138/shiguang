@@ -1,0 +1,16 @@
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 767px) {
+  .actions {
+    width: 100%;
+  }
+
+  .actions > button {
+    flex: 1 1 auto;
+  }
+}

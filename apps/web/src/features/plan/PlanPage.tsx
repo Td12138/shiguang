@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ApiError, deletePreference } from '@/lib/api';
 import type { LearnedPreference } from '@/lib/api';
@@ -16,6 +16,7 @@ import { PlanDiff } from './PlanDiff';
 import { PreferencesPanel } from './PreferencesPanel';
 import { ReviseComposer } from './ReviseComposer';
 import { usePlan } from './usePlan';
+import { staleByName } from '@/lib/freshness';
 import styles from './PlanPage.module.css';
 
 export default function PlanPage() {
@@ -23,6 +24,7 @@ export default function PlanPage() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [prefsOpen, setPrefsOpen] = useState(false);
+  const staleDays = useMemo(() => staleByName(plan.inventory), [plan.inventory]);
 
   const hasPlan = plan.plan !== null && plan.plan.days.length > 0;
   const emptyPlan = plan.plan !== null && plan.plan.days.length === 0;
@@ -131,7 +133,7 @@ export default function PlanPage() {
           />
         </Card>
       ) : plan.plan ? (
-        <PlanBody plan={plan.plan} inventoryTotal={plan.inventory.length} />
+        <PlanBody plan={plan.plan} inventoryTotal={plan.inventory.length} staleDays={staleDays} />
       ) : null}
 
       {hasPlan ? <ReviseComposer revising={plan.revising} onSubmit={(text) => void handleRevise(text)} /> : null}

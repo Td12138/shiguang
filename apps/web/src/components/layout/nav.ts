@@ -27,7 +27,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: '拍照入库',
     icon: 'camera',
     title: '拍照入库',
-    subtitle: '拍一张冰箱照片，识别结果先校对再入库',
+    subtitle: '拍冰箱照片或小票，识别结果先校对再入库',
   },
   {
     path: '/plan',

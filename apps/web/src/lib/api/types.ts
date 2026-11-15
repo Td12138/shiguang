@@ -56,6 +56,8 @@ export interface InventoryItem {
   level: ExpiryLevel;
   /** 契约未列出，后端若返回则用于「冰箱全景」分组，缺失时归入「其他」 */
   category?: string;
+  /** §6.14 距上次核验的天数；> 3 时前端提示「X 天未核验」 */
+  stale_days?: number;
   grams?: number;
   confidence?: number;
   note?: string;
@@ -75,6 +77,8 @@ export interface CreateInventoryItemInput {
 
 export interface CreateInventoryRequest {
   image_id?: string;
+  /** §6.11：小票确认入库时用购物日期（YYYY-MM-DD 也接受），缺省按入库时间 */
+  added_at?: string;
   items: CreateInventoryItemInput[];
 }
 
@@ -105,6 +109,25 @@ export interface InventoryOperationResult {
 
 export type DiscardReason = 'forgot' | 'spoiled' | 'too_much';
 
-/* AI 相关类型（菜谱 / 计划 / Agent / 周报）见 types-ai.ts，计划迭代与偏好见 types-plan.ts */
+/* ---------------------------------------------------------- §6.11 小票识别 */
+
+/** 小票商品行：价格识别不出时为 null（不编造，前端显示「—」） */
+export interface ReceiptItem extends RecognizedItem {
+  price: number | null;
+}
+
+export interface ReceiptResult {
+  image_id: string;
+  items: ReceiptItem[];
+  /** 购物日期 YYYY-MM-DD，识别不出为 null */
+  purchased_at: string | null;
+  /** 小票合计，识别不出为 null */
+  total_price: number | null;
+  warnings: string[];
+}
+
+/* AI 相关类型（菜谱 / 计划 / Agent / 周报）见 types-ai.ts，计划迭代与偏好见 types-plan.ts，备菜见 types-cook.ts */
 export * from './types-ai';
 export * from './types-plan';
+export * from './types-cook';
+export * from './types-reconcile';

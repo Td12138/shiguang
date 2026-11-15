@@ -9,9 +9,11 @@ import { Notice } from '@/components/ui/Notice';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 import { ConsumeModal } from './ConsumeModal';
+import { CookTimeline } from './CookTimeline';
 import { IngredientPicker } from './IngredientPicker';
 import { SuggestionSection } from './SuggestionSection';
 import { useCook } from './useCook';
+import { MAX_SEQUENCE_RECIPES, useCookSequence } from './useCookSequence';
 import styles from './CookPage.module.css';
 
 /** 「临期」口径与 useCook 一致：3 天内到期 */
@@ -19,12 +21,28 @@ const URGENT_DAYS = 3;
 
 export default function CookPage() {
   const cook = useCook();
+  const sequence = useCookSequence();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [pending, setPending] = useState<RecipeRecommendation | null>(null);
 
   const namesOf = (ids: string[]): string =>
     ids.map((id) => cook.inventory.find((item) => item.id === id)?.name ?? '库存条目').join('、');
+
+  const handleSuggest = async (): Promise<void> => {
+    sequence.reset();
+    await cook.suggest();
+  };
+
+  const handleSequence = async (): Promise<void> => {
+    const ok = await sequence.run();
+    toast(ok ? '已生成备菜时间轴' : '没能生成时间轴，看看提示', ok ? 'success' : 'error');
+  };
+
+  const handlePick = (recipeId: string): void => {
+    const result = sequence.togglePick(recipeId);
+    if (result === 'limit') toast(`一次最多 ${MAX_SEQUENCE_RECIPES} 道，先移出一道`, 'info');
+  };
 
   const finish = async (recipe: RecipeRecommendation, manualIds: string[]): Promise<void> => {
     const outcome = await cook.consume(recipe, manualIds);
@@ -60,7 +78,7 @@ export default function CookPage() {
           tone="error"
           title="生成建议失败"
           action={
-            <Button variant="secondary" size="sm" onClick={() => void cook.suggest()}>
+            <Button variant="secondary" size="sm" onClick={() => void handleSuggest()}>
               重试
             </Button>
           }
@@ -112,7 +130,7 @@ export default function CookPage() {
               已选 {cook.selected.length} 样；建议在 30 分钟内能做完，理由与引用都可核对。
             </p>
             <Button
-              onClick={() => void cook.suggest()}
+              onClick={() => void handleSuggest()}
               loading={cook.suggesting}
               disabled={cook.selected.length === 0}
             >
@@ -127,9 +145,24 @@ export default function CookPage() {
         suggesting={cook.suggesting}
         consuming={cook.consuming}
         doneIds={cook.doneIds}
-        onSuggest={() => void cook.suggest()}
+        onSuggest={() => void handleSuggest()}
         onCooked={(recipe) => void handleCooked(recipe)}
+        picked={sequence.picked}
+        canPickMore={sequence.canPickMore}
+        onTogglePick={handlePick}
+        onSequence={() => void handleSequence()}
+        sequencing={sequence.loading}
       />
+
+      {sequence.sequence || sequence.loading || sequence.error ? (
+        <CookTimeline
+          sequence={sequence.sequence}
+          loading={sequence.loading}
+          error={sequence.error}
+          onRetry={() => void handleSequence()}
+          onClose={sequence.reset}
+        />
+      ) : null}
 
       <ConsumeModal
         recipe={pending}

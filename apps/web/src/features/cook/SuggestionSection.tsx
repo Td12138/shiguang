@@ -15,9 +15,15 @@ export interface SuggestionSectionProps {
   doneIds: string[];
   onSuggest: () => void;
   onCooked: (recipe: RecipeRecommendation) => void;
+  /** 已加入备菜的菜谱 id（最多 6 道，顺序即勾选顺序） */
+  picked: string[];
+  canPickMore: boolean;
+  onTogglePick: (recipeId: string) => void;
+  onSequence: () => void;
+  sequencing: boolean;
 }
 
-/** 「② 方案」卡片：加载 / 空 / 结果 / 降级提示 / 推理过程 五态 */
+/** 「② 方案」卡片：加载 / 空 / 结果 / 降级提示 / 推理过程 / 备菜选择 */
 export function SuggestionSection({
   suggestion,
   suggesting,
@@ -25,12 +31,35 @@ export function SuggestionSection({
   doneIds,
   onSuggest,
   onCooked,
+  picked,
+  canPickMore,
+  onTogglePick,
+  onSequence,
+  sequencing,
 }: SuggestionSectionProps) {
   const recipes = suggestion?.recommendations ?? [];
   const warnings = suggestion?.warnings ?? [];
 
   return (
-    <Card title="② 方案" subtitle="每条推荐都挂了引用角标，点开能看原文定位">
+    <Card
+      title="② 方案"
+      subtitle="每条推荐都挂了引用角标；可多选 1–6 道生成备菜时间轴"
+      actions={
+        recipes.length > 0 ? (
+          <div className={styles.actions}>
+            <span className={styles.pickCount}>已选 {picked.length}/6</span>
+            <Button
+              size="sm"
+              onClick={onSequence}
+              loading={sequencing}
+              disabled={picked.length === 0 || sequencing}
+            >
+              开始做这几道
+            </Button>
+          </div>
+        ) : null
+      }
+    >
       {suggesting ? (
         <div className={styles.skeletons}>
           <Skeleton height="104px" radius="var(--radius-md)" />
@@ -54,27 +83,49 @@ export function SuggestionSection({
           }
         />
       ) : (
-        <ol className={styles.recipes}>
-          {recipes.map((recipe, index) => (
-            <li key={recipe.recipe_id}>
-              <RecipeCard
-                recommendation={recipe}
-                index={index + 1}
-                highlight={index === 0}
-                actions={
-                  <Button
-                    size="sm"
-                    onClick={() => onCooked(recipe)}
-                    loading={consuming}
-                    disabled={doneIds.includes(recipe.recipe_id)}
-                  >
-                    {doneIds.includes(recipe.recipe_id) ? '已扣减库存' : '做了'}
-                  </Button>
-                }
-              />
-            </li>
-          ))}
-        </ol>
+        <>
+          <ol className={styles.recipes}>
+            {recipes.map((recipe, index) => {
+              const selected = picked.includes(recipe.recipe_id);
+              return (
+                <li key={recipe.recipe_id}>
+                  <RecipeCard
+                    recommendation={recipe}
+                    index={index + 1}
+                    highlight={index === 0}
+                    actions={
+                      <>
+                        <Button
+                          size="sm"
+                          onClick={() => onCooked(recipe)}
+                          loading={consuming}
+                          disabled={doneIds.includes(recipe.recipe_id)}
+                        >
+                          {doneIds.includes(recipe.recipe_id) ? '已扣减库存' : '做了'}
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => onTogglePick(recipe.recipe_id)}
+                          aria-pressed={selected}
+                          disabled={!selected && !canPickMore}
+                        >
+                          {selected ? '已加入备菜' : '加入备菜'}
+                        </Button>
+                      </>
+                    }
+                  />
+                </li>
+              );
+            })}
+          </ol>
+
+          <p className={styles.pickHint}>
+            {picked.length === 0
+              ? '想让几道菜同时开火？点「加入备菜」挑 1–6 道，再点右上角「开始做这几道」。'
+              : `已选 ${picked.length} 道，点右上角生成时间轴；再点一次可移出。`}
+          </p>
+        </>
       )}
 
       {warnings.length > 0 ? (

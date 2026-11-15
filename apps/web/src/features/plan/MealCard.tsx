@@ -1,13 +1,16 @@
 import type { PlanMeal } from '@/lib/api';
 import { CitationChip } from '@/components/ui/CitationChip';
+import { StaleBadge } from '@/components/ui/StaleBadge';
 import styles from './MealCard.module.css';
 
 export interface MealCardProps {
   meal: PlanMeal;
+  /** 食材名 → 未核验天数（§6.14），只用于给对应配料加角标 */
+  staleDays?: Record<string, number>;
 }
 
 /** 一餐：餐段 + 菜名 + 耗时 + 用掉什么 / 缺什么 / 引用 */
-export function MealCard({ meal }: MealCardProps) {
+export function MealCard({ meal, staleDays }: MealCardProps) {
   const required = meal.missing.filter((item) => !item.optional);
   const optional = meal.missing.filter((item) => item.optional);
 
@@ -22,15 +25,19 @@ export function MealCard({ meal }: MealCardProps) {
       {meal.uses.length > 0 ? (
         <p className={styles.uses}>
           <span className={styles.key}>用掉</span>
-          {meal.uses.map((use) => (
-            <span key={`${use.name}-${use.qty}`} className={styles.use}>
-              {use.name}
-              <em>
-                {use.qty}
-                {use.unit}
-              </em>
-            </span>
-          ))}
+          {meal.uses.map((use) => {
+            const stale = staleDays?.[use.name];
+            return (
+              <span key={`${use.name}-${use.qty}`} className={styles.use}>
+                {use.name}
+                <em>
+                  {use.qty}
+                  {use.unit}
+                </em>
+                {typeof stale === 'number' ? <StaleBadge days={stale} /> : null}
+              </span>
+            );
+          })}
         </p>
       ) : null}
 

@@ -8,10 +8,19 @@ export interface DropzoneProps {
   onFile: (file: File) => void;
   disabled?: boolean;
   previewUrl: string | null;
+  /** 主提示文案，默认是冰箱照片 */
+  title?: string;
+  hint?: string;
 }
 
 /** 拍照/拖拽上传：拖拽区本身就是 label，键盘可触发 */
-export function Dropzone({ onFile, disabled = false, previewUrl }: DropzoneProps) {
+export function Dropzone({
+  onFile,
+  disabled = false,
+  previewUrl,
+  title,
+  hint,
+}: DropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -63,9 +72,11 @@ export function Dropzone({ onFile, disabled = false, previewUrl }: DropzoneProps
           </span>
         )}
         <span className={styles.title}>
-          {disabled ? '正在识别…' : '拖一张冰箱照片到这里，或点击选择'}
+          {disabled ? '正在识别…' : (title ?? '拖一张冰箱照片到这里，或点击选择')}
         </span>
-        <span className={styles.hint}>支持 JPG / PNG / WEBP，单张 ≤ 15MB；识别结果需人工确认后才入库</span>
+        <span className={styles.hint}>
+          {hint ?? '支持 JPG / PNG / WEBP，单张 ≤ 15MB；识别结果需人工确认后才入库'}
+        </span>
       </label>
     </div>
   );

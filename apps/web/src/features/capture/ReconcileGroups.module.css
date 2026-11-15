@@ -1,0 +1,182 @@
+.list {
+  display: grid;
+  gap: 6px;
+}
+
+.row {
+  display: grid;
+  gap: 8px;
+  padding: 10px var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.info {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.name {
+  font-size: var(--fs-2);
+  color: var(--color-text);
+}
+
+.meta {
+  color: var(--color-text-faint);
+  font-size: var(--fs-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.reason {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-1);
+  color: var(--color-text-muted);
+}
+
+.select {
+  padding: 6px 8px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font-size: var(--fs-1);
+}
+
+.select:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* 变少了：从 6 → [2] 个 */
+.flow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: var(--fs-2);
+  color: var(--color-text-muted);
+}
+
+.arrow {
+  color: var(--color-text-faint);
+}
+
+.qtyInput {
+  width: 74px;
+  padding: 6px 8px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font-size: var(--fs-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.qtyInput:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.unchanged {
+  color: var(--color-text-faint);
+  font-size: var(--fs-1);
+}
+
+/* 新增：勾选才入库 */
+.addedRow {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 10px var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.addedRow[data-picked] {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.check {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-primary);
+}
+
+.addedMain {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.addedName {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.tag {
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 10px;
+}
+
+.tag[data-warn] {
+  background: var(--color-warn-soft);
+  border-color: #efd9bd;
+  color: #8a5a12;
+}
+
+.confidence {
+  width: 120px;
+  max-width: 100%;
+}
+
+/* 看不清：只提示 */
+.suspectRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px var(--space-2);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+  font-size: var(--fs-2);
+}
+
+.suspectReason {
+  color: var(--color-text-faint);
+  font-size: var(--fs-1);
+}
+
+@media (max-width: 767px) {
+  .row {
+    padding: 10px 12px;
+  }
+
+  .confidence {
+    width: 100%;
+  }
+
+  .addedRow {
+    padding: 10px 12px;
+  }
+}

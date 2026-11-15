@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { DemoBanner } from '@/components/ui/DemoBanner';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { countStale } from '@/lib/freshness';
 import { DashboardSkeleton } from './DashboardSkeleton';
 import { FridgeOverview } from './FridgeOverview';
 import { SuggestionPanel } from './SuggestionPanel';
 import { UrgentStrip } from './UrgentStrip';
+import { StaleNotice } from './StaleNotice';
 import { groupByCategory, pickExpiring } from './selectors';
 import { useDashboard } from './useDashboard';
 import styles from './DashboardPage.module.css';
@@ -17,6 +19,7 @@ export default function DashboardPage() {
 
   const expiring = useMemo(() => pickExpiring(inventory), [inventory]);
   const groups = useMemo(() => groupByCategory(inventory), [inventory]);
+  const staleCount = useMemo(() => countStale(inventory), [inventory]);
 
   if (loading) {
     return (
@@ -54,6 +57,7 @@ export default function DashboardPage() {
   return (
     <div className="page-stack">
       {demo ? <DemoBanner onRetry={reload} /> : null}
+      <StaleNotice count={staleCount} />
       <UrgentStrip items={expiring} />
       <SuggestionPanel suggestion={suggestion} loading={loading} onRefresh={reload} />
       <FridgeOverview groups={groups} total={inventory.length} />

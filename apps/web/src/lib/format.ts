@@ -60,3 +60,22 @@ export function dayLabel(iso: string): string {
   if (Number.isNaN(date.getTime())) return iso;
   return `${date.getMonth() + 1}/${date.getDate()} ${WEEKDAYS[date.getDay()] ?? ''}`;
 }
+
+/** 当前时间 HH:MM：备菜时间轴默认从「现在」开始排 */
+export function nowHhMm(date = new Date()): string {
+  return `${`${date.getHours()}`.padStart(2, '0')}:${`${date.getMinutes()}`.padStart(2, '0')}`;
+}
+
+/** 金额：null / undefined 一律显示「—」，绝不当 0 展示 */
+export function formatMoney(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return '—';
+  return `¥${value.toFixed(2)}`;
+}
+
+/** ISO 时间 → 「2026-11-15 18:20」；解析失败原样返回 */
+export function formatDateTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  const pad = (value: number): string => `${value}`.padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}

@@ -30,6 +30,7 @@ from app.domain import preferences as preference_store
 from app.domain import tools_registry
 from app.domain.inventory import now_iso, stale_active_warning
 from app.domain.recipes import (
+    StepCallback,
     _Stopwatch,
     _Trace,
     _invoke_tool,
@@ -800,14 +801,19 @@ async def build_plan(
     max_minutes: int = DEFAULT_MAX_MINUTES,
     *,
     provider=None,
+    on_step: StepCallback | None = None,
 ) -> dict:
+    """五步流水线；返回完整计划（契约 §6.8）。
+
+    ``on_step`` 仅流式接口传（契约 §6.15），非流式保持默认 ``None``（行为不变）。
+    """
     day_count = max(1, min(int(days or DEFAULT_DAYS), MAX_DAYS))
     servings = max(1, min(int(servings or DEFAULT_SERVINGS), 8))
     max_minutes = max(1, min(int(max_minutes or DEFAULT_MAX_MINUTES), 240))
 
     plan_id = _new_plan_id()
     run_id = f"run_{uuid.uuid4().hex[:12]}"
-    trace = _Trace()
+    trace = _Trace(on_step)
     warnings: list[str] = []
     state = STATE_OK
     start_date = date.today() + timedelta(days=1)
@@ -820,7 +826,7 @@ async def build_plan(
         # ---- 1 understand ----
         watch = _Stopwatch()
         if llm is None:
-            trace.add(STEP_UNDERSTAND, STATE_DEGRADED, watch, "无可用模型，按输入参数执行")
+            await trace.add(STEP_UNDERSTAND, STATE_DEGRADED, watch, "无可用模型，按输入参数执行")
             warnings.append("已降级：模型不可用，人数与时间按输入参数执行")
         else:
             try:
@@ -829,7 +835,7 @@ async def build_plan(
                     day_count = max(1, min(int(data.get("days") or day_count), MAX_DAYS))
                     servings = max(1, min(int(data.get("servings") or servings), 8))
                     max_minutes = max(1, min(int(data.get("max_minutes") or max_minutes), 240))
-                trace.add(
+                await trace.add(
                     STEP_UNDERSTAND,
                     STATE_OK,
                     watch,
@@ -837,7 +843,7 @@ async def build_plan(
                 )
             except Exception as exc:
                 logger.warning("计划 understand 失败，按输入参数继续：%s", exc)
-                trace.add(STEP_UNDERSTAND, STATE_DEGRADED, watch, "解析失败，按输入参数执行")
+                await trace.add(STEP_UNDERSTAND, STATE_DEGRADED, watch, "解析失败，按输入参数执行")
                 warnings.append("已降级：意图解析失败，按输入参数执行")
 
         # ---- 2 plan：取库存、剔除过期 ----
@@ -849,7 +855,7 @@ async def build_plan(
                 tools_registry.list_inventory,
             )
         except Exception as exc:
-            trace.add(STEP_PLAN, "error", watch, "库存读取失败")
+            await trace.add(STEP_PLAN, "error", watch, "库存读取失败")
             _persist_run(run_id, STATE_FAILED, trace.steps)
             raise AppError("plan_failed", "读取库存失败，请稍后重试", 500, str(exc)) from exc
 
@@ -870,7 +876,7 @@ async def build_plan(
         # 忌口食材通常不在库存里，必须独立从偏好文本抽词，否则硬约束会整条失效
         blocked |= preference_store.avoid_terms(prefs)
 
-        trace.add(
+        await trace.add(
             STEP_PLAN,
             STATE_OK,
             watch,
@@ -879,9 +885,9 @@ async def build_plan(
         )
 
         if not snapshot["usable"]:
-            trace.add(STEP_ALLOCATE, "empty", _Stopwatch(), "没有可用食材")
-            trace.add(STEP_COMPOSE, "skipped", _Stopwatch(), "无可用食材，跳过配餐")
-            trace.add(STEP_VERIFY, "skipped", _Stopwatch(), "空计划无需校验")
+            await trace.add(STEP_ALLOCATE, "empty", _Stopwatch(), "没有可用食材")
+            await trace.add(STEP_COMPOSE, "skipped", _Stopwatch(), "无可用食材，跳过配餐")
+            await trace.add(STEP_VERIFY, "skipped", _Stopwatch(), "空计划无需校验")
             warnings.append(EMPTY_INVENTORY_WARNING)
             _persist_run(run_id, STATE_DEGRADED, trace.steps)
             _persist_event(plan_id, run_id, {"state": STATE_DEGRADED, "meals": 0})
@@ -915,9 +921,9 @@ async def build_plan(
                 PREFERENCE_EXCLUDED_TEMPLATE.format(names="、".join(sorted(blocked)))
             )
         if not candidates:
-            trace.add(STEP_ALLOCATE, "empty", watch, "候选菜谱为空")
-            trace.add(STEP_COMPOSE, "skipped", _Stopwatch(), "无候选，跳过配餐")
-            trace.add(STEP_VERIFY, "skipped", _Stopwatch(), "空计划无需校验")
+            await trace.add(STEP_ALLOCATE, "empty", watch, "候选菜谱为空")
+            await trace.add(STEP_COMPOSE, "skipped", _Stopwatch(), "无候选，跳过配餐")
+            await trace.add(STEP_VERIFY, "skipped", _Stopwatch(), "空计划无需校验")
             warnings.append(
                 ALL_BLOCKED_WARNING.format(names="、".join(sorted(blocked)))
                 if blocked
@@ -931,7 +937,7 @@ async def build_plan(
 
         candidates_by_id = {item["recipe_id"]: item for item in candidates}
         greedy = _greedy_assignments(candidates, snapshot, day_count, servings)
-        trace.add(
+        await trace.add(
             STEP_ALLOCATE,
             STATE_OK,
             watch,
@@ -958,7 +964,7 @@ async def build_plan(
             assignments = greedy
             degraded = True
             warnings.append(DEGRADE_WARNING)
-            trace.add(STEP_COMPOSE, STATE_DEGRADED, watch, "模型不可用，按检索结果贪心配餐")
+            await trace.add(STEP_COMPOSE, STATE_DEGRADED, watch, "模型不可用，按检索结果贪心配餐")
         else:
             filled = _fill_from_greedy(assignments, greedy)
             if len(filled) > len(assignments):
@@ -966,7 +972,7 @@ async def build_plan(
                     f"模型只排了 {len(assignments)} 餐，其余 {len(filled) - len(assignments)} 餐用规则补齐"
                 )
             assignments = filled
-            trace.add(
+            await trace.add(
                 STEP_COMPOSE,
                 STATE_OK,
                 watch,
@@ -1046,7 +1052,7 @@ async def build_plan(
             warnings.append("校验仍有未消除的问题：" + "；".join(problems[:2]))
 
         state = STATE_DEGRADED if (degraded or problems) else STATE_OK
-        trace.add(
+        await trace.add(
             STEP_VERIFY,
             STATE_OK if not problems else STATE_DEGRADED,
             watch,
@@ -1856,7 +1862,7 @@ async def revise(plan_id: str, instruction: str, *, provider=None) -> dict:
         intent = rule_intent
         if llm is None:
             warnings.append(REVISE_DEGRADED_WARNING)
-            trace.add(STEP_UNDERSTAND, STATE_DEGRADED, watch, "模型不可用，按规则解析指令")
+            await trace.add(STEP_UNDERSTAND, STATE_DEGRADED, watch, "模型不可用，按规则解析指令")
         else:
             try:
                 data = await llm.chat_json(
@@ -1864,10 +1870,10 @@ async def revise(plan_id: str, instruction: str, *, provider=None) -> dict:
                     schema=ReviseIntent,
                 )
                 intent = instruction_parser.merge_intents(rule_intent, _parse_revise_intent(data))
-                trace.add(STEP_UNDERSTAND, STATE_OK, watch, f"改动意图：{_intent_summary(intent)}")
+                await trace.add(STEP_UNDERSTAND, STATE_OK, watch, f"改动意图：{_intent_summary(intent)}")
             except Exception as exc:
                 logger.info("改计划指令解析失败，改用规则版：%s", exc)
-                trace.add(STEP_UNDERSTAND, STATE_DEGRADED, watch, "解析失败，改用规则版")
+                await trace.add(STEP_UNDERSTAND, STATE_DEGRADED, watch, "解析失败，改用规则版")
                 warnings.append(REVISE_DEGRADED_WARNING)
 
         if day_count == 0:
@@ -1877,7 +1883,7 @@ async def revise(plan_id: str, instruction: str, *, provider=None) -> dict:
                 (STEP_COMPOSE, "空计划，无需配餐"),
                 (STEP_VERIFY, "空计划无需校验"),
             ):
-                trace.add(step, "skipped", _Stopwatch(), note)
+                await trace.add(step, "skipped", _Stopwatch(), note)
             warnings.append(EMPTY_PLAN_REVISE_WARNING)
             _persist_run(run_id, STATE_DEGRADED, trace.steps)
             return _revise_result(plan_id, run_id, original, warnings, [], [])
@@ -1890,7 +1896,7 @@ async def revise(plan_id: str, instruction: str, *, provider=None) -> dict:
                 (STEP_COMPOSE, "序号越界，未配餐"),
                 (STEP_VERIFY, "没有改动，无需校验"),
             ):
-                trace.add(step, "skipped", _Stopwatch(), note)
+                await trace.add(step, "skipped", _Stopwatch(), note)
             warnings.append(
                 REVISE_NO_CHANGE_TEMPLATE.format(detail=f"这份计划只有 {day_count} 天")
             )
@@ -1931,7 +1937,7 @@ async def revise(plan_id: str, instruction: str, *, provider=None) -> dict:
             plan_summary += "，" + REVISE_SOFT_TRACE_TEMPLATE.format(
                 count=len(soft_texts), lines="、".join(soft_texts)
             )
-        trace.add(STEP_PLAN, STATE_OK, watch, plan_summary)
+        await trace.add(STEP_PLAN, STATE_OK, watch, plan_summary)
 
         # ---- 3 allocate：检索候选（未涉及的餐直接用存档里的菜谱）----
         watch = _Stopwatch()
@@ -1959,7 +1965,7 @@ async def revise(plan_id: str, instruction: str, *, provider=None) -> dict:
                 for day in original["days"]
                 for meal in day.get("meals", [])
             }
-        trace.add(
+        await trace.add(
             STEP_ALLOCATE,
             STATE_OK if candidates else "empty",
             watch,
@@ -1984,8 +1990,8 @@ async def revise(plan_id: str, instruction: str, *, provider=None) -> dict:
         if rows is None:
             scope = (failure or {}).get("scope") or REVISE_WHOLE_PLAN
             detail = (failure or {}).get("reason")
-            trace.add(STEP_COMPOSE, "empty", watch, f"{scope} 没有可用替换菜谱")
-            trace.add(STEP_VERIFY, "skipped", _Stopwatch(), "没有改动，无需校验")
+            await trace.add(STEP_COMPOSE, "empty", watch, f"{scope} 没有可用替换菜谱")
+            await trace.add(STEP_VERIFY, "skipped", _Stopwatch(), "没有改动，无需校验")
             warnings.append(
                 REVISE_SWAP_SCOPE_TEMPLATE.format(scope=scope, reason=detail)
                 if detail
@@ -2001,7 +2007,7 @@ async def revise(plan_id: str, instruction: str, *, provider=None) -> dict:
         frozen_keys = {
             (row["date"], row["slot"]) for row in rows if not row["changed"]
         }
-        trace.add(
+        await trace.add(
             STEP_COMPOSE,
             STATE_OK,
             watch,
@@ -2018,7 +2024,7 @@ async def revise(plan_id: str, instruction: str, *, provider=None) -> dict:
             frozen_keys=frozen_keys,
         )
         if problems:
-            trace.add(STEP_VERIFY, "error", watch, f"{len(problems)} 个问题，本次不落库")
+            await trace.add(STEP_VERIFY, "error", watch, f"{len(problems)} 个问题，本次不落库")
             warnings.append(
                 "按你的要求改完之后仍不满足计划规则（"
                 + "；".join(problems[:2])
@@ -2036,7 +2042,7 @@ async def revise(plan_id: str, instruction: str, *, provider=None) -> dict:
 
         changed = _diff_days(original["days"], built["days"])
         if not changed:
-            trace.add(STEP_VERIFY, STATE_OK, watch, "无需改动，计划保持原样")
+            await trace.add(STEP_VERIFY, STATE_OK, watch, "无需改动，计划保持原样")
             if intent.get("swap_to"):
                 already = [
                     (_scope_label(str(day["date"]), str(meal.get("slot"))), str(meal.get("title") or ""))
@@ -2063,7 +2069,7 @@ async def revise(plan_id: str, instruction: str, *, provider=None) -> dict:
             if not (row_by_key.get((entry["date"], entry["slot"])) or {}).get("changed")
         ]
         if drifted:
-            trace.add(
+            await trace.add(
                 STEP_VERIFY,
                 "error",
                 watch,
@@ -2085,7 +2091,7 @@ async def revise(plan_id: str, instruction: str, *, provider=None) -> dict:
             entry["reason"] = _change_reason(
                 intent, soft_hints, row.get("old_meal") or {}, row.get("recipe") or {}
             )
-        trace.add(
+        await trace.add(
             STEP_VERIFY,
             STATE_OK,
             watch,

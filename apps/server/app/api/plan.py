@@ -1,4 +1,4 @@
-"""饮食计划 API（契约 §6.8 / §6.9 / §6.10）。
+"""饮食计划 API（契约 §6.8 / §6.9 / §6.10 / §6.15）。
 
 `/api/preferences` 也挂在这棵 router 树上：`main.py` 的 `BUSINESS_ROUTERS`
 目前还没有 `preferences` 项（该文件由 A 维护），先把偏好路由并进来，
@@ -7,14 +7,19 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.api import preferences as preferences_api
+from app.core.sse import SSE_HEADERS, SSE_MEDIA_TYPE, progress_stream
 from app.domain import plan as plan_domain
 
 router = APIRouter(prefix="/api", tags=["plan"])
 plan_router = APIRouter(prefix="/plan", tags=["plan"])
+
+# 流内错误兜底码（AppError 自带 code 时以 AppError 为准）
+PLAN_STREAM_ERROR_CODE = "plan_failed"
 
 
 class MealPlanIn(BaseModel):
@@ -37,6 +42,25 @@ async def create_meal_plan(payload: MealPlanIn) -> dict:
         days=payload.days,
         servings=payload.servings,
         max_minutes=payload.max_minutes,
+    )
+
+
+@plan_router.post("/meals/stream")
+async def stream_meal_plan(payload: MealPlanIn, request: Request) -> StreamingResponse:
+    """§6.15：同一份 build_plan 的流式版（step 即时下发，result 与非流式逐字段一致）。"""
+    return StreamingResponse(
+        progress_stream(
+            request,
+            lambda on_step: plan_domain.build_plan(
+                days=payload.days,
+                servings=payload.servings,
+                max_minutes=payload.max_minutes,
+                on_step=on_step,
+            ),
+            error_code=PLAN_STREAM_ERROR_CODE,
+        ),
+        media_type=SSE_MEDIA_TYPE,
+        headers=SSE_HEADERS,
     )
 
 

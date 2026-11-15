@@ -11,6 +11,7 @@ import json
 import logging
 import time
 import uuid
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from app.db.conn import get_conn
@@ -46,6 +47,9 @@ DEGRADE_WARNING = "已降级：模型不可用或输出未通过校验，本次�
 UNDERSTAND_SYSTEM = "阶段：understand\n你是「食光」的菜谱规划助手，只输出 JSON，不输出解释。"
 COMPOSE_SYSTEM = "阶段：compose\n你是「食光」的菜谱推荐助手，只输出 JSON，不输出解释。"
 
+# 进度回调（契约 §6.15）：domain 每完成一步 await 一次，SSE 层据此发 step 事件
+StepCallback = Callable[[dict], Awaitable[None]]
+
 
 class _Stopwatch:
     def __init__(self) -> None:
@@ -67,21 +71,28 @@ def _new_run_id() -> str:
 
 
 class _Trace:
-    """收集五步轨迹，最后一次性落库。"""
+    """收集五步轨迹，最后一次性落库。
 
-    def __init__(self) -> None:
+    ``on_step`` 只给流式接口用（契约 §6.15）：每完成一步就 await 一次回调，把
+    step 即时推给前端。默认 ``None`` 时行为与之前完全一致（只收集、结束时落库）。
+    """
+
+    def __init__(self, on_step: StepCallback | None = None) -> None:
         self.steps: list[dict] = []
+        self._on_step = on_step
 
-    def add(self, name: str, status: str, watch: _Stopwatch, summary: str) -> None:
-        self.steps.append(
-            {
-                "name": name,
-                "status": status,
-                "started_at": watch.started_at,
-                "ms": watch.ms(),
-                "summary": summary,
-            }
-        )
+    async def add(self, name: str, status: str, watch: _Stopwatch, summary: str) -> None:
+        step = {
+            "name": name,
+            "status": status,
+            "started_at": watch.started_at,
+            "ms": watch.ms(),
+            "summary": summary,
+        }
+        self.steps.append(step)
+        if self._on_step is not None:
+            # 传副本：回调方（SSE 层）不得改动落库的轨迹
+            await self._on_step(dict(step))
 
 
 async def _invoke_tool(name: str, args: dict, fallback):
@@ -479,14 +490,17 @@ async def suggest(
     limit: int = DEFAULT_LIMIT,
     *,
     provider=None,
+    on_step: StepCallback | None = None,
 ) -> dict:
-    """五步流水线；返回 {run_id, recommendations, warnings}。"""
+    """五步流水线；返回 {run_id, recommendations, warnings}。
+
+    ``on_step`` 仅流式接口传（契约 §6.15），非流式保持默认 ``None``。"""
     use = [str(x) for x in (use or [])]
     max_minutes = max(1, min(int(max_minutes or DEFAULT_MAX_MINUTES), 240))
     limit = max(1, min(int(limit or DEFAULT_LIMIT), MAX_LIMIT))
 
     run_id = _new_run_id()
-    trace = _Trace()
+    trace = _Trace(on_step)
     warnings: list[str] = []
     state = STATE_OK
     _persist_run(run_id, STATE_RUNNING, trace.steps)
@@ -504,13 +518,13 @@ async def suggest(
             "taste": None,
         }
         if llm is None:
-            trace.add(STEP_UNDERSTAND, STATE_DEGRADED, watch, "无可用模型，按输入参数执行")
+            await trace.add(STEP_UNDERSTAND, STATE_DEGRADED, watch, "无可用模型，按输入参数执行")
             warnings.append("已降级：模型不可用，意图解析按输入参数执行")
         else:
             try:
                 data = await llm.chat_json(_understand_messages(use, max_minutes, limit))
                 constraints = _normalize_constraints(data, constraints)
-                trace.add(
+                await trace.add(
                     STEP_UNDERSTAND,
                     STATE_OK,
                     watch,
@@ -518,7 +532,7 @@ async def suggest(
                 )
             except Exception as exc:
                 logger.warning("understand 失败，按输入参数继续：%s", exc)
-                trace.add(STEP_UNDERSTAND, STATE_DEGRADED, watch, "解析失败，按输入参数执行")
+                await trace.add(STEP_UNDERSTAND, STATE_DEGRADED, watch, "解析失败，按输入参数执行")
                 warnings.append("已降级：意图解析失败，按输入参数执行")
 
         # ---- 2 plan ----
@@ -530,7 +544,7 @@ async def suggest(
                 tools_registry.list_inventory,
             )
         except Exception as exc:
-            trace.add(STEP_PLAN, "error", watch, "库存读取失败")
+            await trace.add(STEP_PLAN, "error", watch, "库存读取失败")
             _persist_run(run_id, STATE_FAILED, trace.steps)
             raise AppError("plan_failed", "读取库存失败，请稍后重试", 500, str(exc)) from exc
 
@@ -550,7 +564,7 @@ async def suggest(
                     len(expired), "、".join(str(item["name"]) for item in expired)
                 )
             )
-        trace.add(
+        await trace.add(
             STEP_PLAN,
             STATE_OK,
             watch,
@@ -574,16 +588,16 @@ async def suggest(
         )
         candidates = found["items"]
         if not candidates:
-            trace.add(STEP_RETRIEVE, "empty", watch, "检索无匹配菜谱")
-            trace.add(STEP_COMPOSE, "skipped", _Stopwatch(), "无候选，跳过排序")
-            trace.add(STEP_VERIFY, "skipped", _Stopwatch(), "无候选，跳过校验")
+            await trace.add(STEP_RETRIEVE, "empty", watch, "检索无匹配菜谱")
+            await trace.add(STEP_COMPOSE, "skipped", _Stopwatch(), "无候选，跳过排序")
+            await trace.add(STEP_VERIFY, "skipped", _Stopwatch(), "无候选，跳过校验")
             _persist_run(run_id, STATE_DEGRADED, trace.steps)
             return {
                 "run_id": run_id,
                 "recommendations": [],
                 "warnings": warnings + ["库存里没有匹配菜谱"],
             }
-        trace.add(STEP_RETRIEVE, STATE_OK, watch, f"命中 {len(candidates)} 个候选菜谱")
+        await trace.add(STEP_RETRIEVE, STATE_OK, watch, f"命中 {len(candidates)} 个候选菜谱")
 
         # ---- 4 compose ----
         watch = _Stopwatch()
@@ -596,14 +610,14 @@ async def suggest(
             recommendations = _degraded_recommendations(candidates, inventory_items, limit)
             _attach_uses(recommendations, candidates, inventory_items)
             state = STATE_DEGRADED
-            trace.add(STEP_COMPOSE, STATE_DEGRADED, watch, "模型不可用，按检索分数排序")
+            await trace.add(STEP_COMPOSE, STATE_DEGRADED, watch, "模型不可用，按检索分数排序")
             warnings.append(DEGRADE_WARNING)
-            trace.add(STEP_VERIFY, STATE_DEGRADED, _Stopwatch(), "规则版无需校验，沿用模板结果")
+            await trace.add(STEP_VERIFY, STATE_DEGRADED, _Stopwatch(), "规则版无需校验，沿用模板结果")
             _persist_run(run_id, state, trace.steps)
             return {"run_id": run_id, "recommendations": recommendations, "warnings": warnings}
 
         recommendations, invalid = _assemble(parsed, candidates, limit)
-        trace.add(
+        await trace.add(
             STEP_COMPOSE,
             STATE_OK if not invalid else STATE_DEGRADED,
             watch,
@@ -636,13 +650,13 @@ async def suggest(
         if not kept:
             recommendations = _degraded_recommendations(candidates, inventory_items, limit)
             state = STATE_DEGRADED
-            trace.add(STEP_VERIFY, STATE_DEGRADED, watch, "校验全部不通过，改用规则版")
+            await trace.add(STEP_VERIFY, STATE_DEGRADED, watch, "校验全部不通过，改用规则版")
             warnings.append(DEGRADE_WARNING)
         else:
             recommendations = kept
             if problems:
                 warnings.append(f"已剔除 {len(problems)} 条未通过校验的建议")
-            trace.add(
+            await trace.add(
                 STEP_VERIFY,
                 STATE_OK if not problems else STATE_DEGRADED,
                 watch,

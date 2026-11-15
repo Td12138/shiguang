@@ -15,9 +15,9 @@ export function MealCard({ meal }: MealCardProps) {
     <article className={styles.card}>
       <header className={styles.head}>
         <span className={styles.slot}>{meal.slot}</span>
-        <h4 className={styles.title}>{meal.title}</h4>
         <span className={styles.minutes}>{meal.minutes} 分钟</span>
       </header>
+      <h4 className={styles.title}>{meal.title}</h4>
 
       {meal.uses.length > 0 ? (
         <p className={styles.uses}>

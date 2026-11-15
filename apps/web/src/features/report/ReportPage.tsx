@@ -56,6 +56,12 @@ export default function ReportPage() {
           <CitationList items={report.citations} />
         ) : null}
 
+        {report.status === 'error' && report.text.length === 0 ? (
+          <p className={styles.interrupted}>
+            流式输出中断，这次没有生成正文；下面是同一区间的统计摘要，可直接当周报读。
+          </p>
+        ) : null}
+
         {report.status === 'done' ? (
           <p className={styles.footnote}>
             周报内容由模型生成，数字来自本地统计；碳当量为估算，引用可点击回看来源。

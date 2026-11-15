@@ -30,7 +30,7 @@ LOGGER = logging.getLogger(__name__)
 SERVICE_TITLE = "食光 · 剩食管家 API"
 SERVICE_VERSION = "0.1.0"
 # B 层路由模块名（对应 app/api/<name>.py），按契约 §6 顺序挂载
-BUSINESS_ROUTERS: tuple[str, ...] = ("capture", "inventory", "recipes", "stats", "report")
+BUSINESS_ROUTERS: tuple[str, ...] = ("capture", "inventory", "recipes", "plan", "stats", "report")
 
 
 def configure_logging() -> None:

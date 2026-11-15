@@ -41,6 +41,14 @@
   font-size: var(--fs-1);
 }
 
+.interrupted {
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  font-size: var(--fs-2);
+}
+
 .fallbackGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

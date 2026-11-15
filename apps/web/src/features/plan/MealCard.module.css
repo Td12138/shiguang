@@ -10,6 +10,7 @@
 .head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
 }
 
@@ -24,12 +25,9 @@
 }
 
 .title {
-  flex: 1 1 auto;
-  min-width: 0;
   font-size: var(--fs-3);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .minutes {

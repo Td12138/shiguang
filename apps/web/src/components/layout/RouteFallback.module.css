@@ -1,6 +1,15 @@
 .wrap {
   display: grid;
   gap: var(--space-3);
+  /* 避免「闪现」：接口很快时骨架还来不及淡入就已经卸载，不会抽搐 */
+  opacity: 0;
+  animation: skeleton-in 180ms ease-out 140ms both;
+}
+
+@keyframes skeleton-in {
+  to {
+    opacity: 1;
+  }
 }
 
 .block {

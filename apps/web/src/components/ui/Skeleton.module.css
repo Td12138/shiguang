@@ -5,17 +5,29 @@
 
 .bar {
   display: block;
-  background: linear-gradient(90deg, #eeece4 25%, #f6f4ee 50%, #eeece4 75%);
+  background-color: #eeece4;
+  background-image: linear-gradient(90deg, #eeece4 25%, #f7f5ef 50%, #eeece4 75%);
+  background-repeat: no-repeat;
   background-size: 240% 100%;
-  animation: shimmer 1.4s ease-in-out infinite;
+  /* linear 比 ease-in-out 更稳；1.6s 不至于像在抽搐 */
+  animation: shimmer 1.6s linear infinite;
+  will-change: background-position;
 }
 
 @keyframes shimmer {
   from {
-    background-position: 140% 0;
+    background-position: 120% 0;
   }
 
   to {
-    background-position: -40% 0;
+    background-position: -120% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar {
+    animation: none;
+    background-image: none;
+    background-color: #eeece4;
   }
 }

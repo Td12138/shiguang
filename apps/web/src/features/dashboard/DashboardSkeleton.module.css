@@ -1,6 +1,15 @@
 .wrap {
   display: grid;
   gap: var(--space-3);
+  /* 与路由骨架一致：延迟淡入，避免快速返回时闪一下 */
+  opacity: 0;
+  animation: skeleton-in 180ms ease-out 140ms both;
+}
+
+@keyframes skeleton-in {
+  to {
+    opacity: 1;
+  }
 }
 
 .urgent {

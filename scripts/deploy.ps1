@@ -75,24 +75,44 @@ function Fail {
 }
 
 # 把脚本经 stdin 交给远端 bash：避免多层引号与 $ 展开地狱；换行统一 LF，避免 bash 读到 \r
-function ConvertTo-RemoteText {
+function New-RemoteScriptFile {
     param([Parameter(Mandatory)][string]$Script)
-    # 去掉所有 CR（不只 CRLF）：Windows here-string/编辑器可能留下孤立 \r，
-    # 远端 bash 会把它当成命令的一部分（典型报错：$'\r': command not found）。
-    return ((($Script -replace "`r", "").TrimEnd()) + "`n")
+    # 不用 stdin 管道：PowerShell 给原生命令写 stdin 时会补 CRLF，
+    # 远端 bash 读到 \r 会报 "$'\r': command not found"。
+    # 改为写本地 LF 临时文件 → scp → ssh bash <file>，彻底避开换行转换。
+    $path = Join-Path $env:TEMP ("shiguang-remote-" + [guid]::NewGuid().ToString("N") + ".sh")
+    $text = ((($Script -replace "`r", "").TrimEnd()) + "`n")
+    [IO.File]::WriteAllText($path, $text, (New-Object Text.UTF8Encoding($false)))
+    return $path
 }
 
 function Invoke-Remote {
     param([Parameter(Mandatory)][string]$Script)
-    ConvertTo-RemoteText $Script | & ssh -i $SshKey @SSH_OPTIONS "root@$ServerHost" "bash -s" | Out-Host
-    if ($LASTEXITCODE -ne 0) { Fail "远端脚本失败（退出码 $LASTEXITCODE）" }
+    $local = New-RemoteScriptFile $Script
+    $remote = "/tmp/shiguang-remote-" + [guid]::NewGuid().ToString("N") + ".sh"
+    try {
+        & scp -i $SshKey @SSH_OPTIONS $local "root@${ServerHost}:$remote"
+        if ($LASTEXITCODE -ne 0) { Fail "上传远端脚本失败（退出码 $LASTEXITCODE）" }
+        & ssh -i $SshKey @SSH_OPTIONS "root@$ServerHost" "bash $remote; code=`$?; rm -f $remote; exit `$code" | Out-Host
+        if ($LASTEXITCODE -ne 0) { Fail "远端脚本失败（退出码 $LASTEXITCODE）" }
+    } finally {
+        if (Test-Path -LiteralPath $local) { Remove-Item -Force -LiteralPath $local -ErrorAction SilentlyContinue }
+    }
 }
 
 function Invoke-RemoteCapture {
     param([Parameter(Mandatory)][string]$Script)
-    $output = @(ConvertTo-RemoteText $Script | & ssh -i $SshKey @SSH_OPTIONS "root@$ServerHost" "bash -s")
-    $code = $LASTEXITCODE
-    return [pscustomobject]@{ ExitCode = $code; Lines = $output }
+    $local = New-RemoteScriptFile $Script
+    $remote = "/tmp/shiguang-remote-" + [guid]::NewGuid().ToString("N") + ".sh"
+    try {
+        & scp -i $SshKey @SSH_OPTIONS $local "root@${ServerHost}:$remote"
+        if ($LASTEXITCODE -ne 0) { return [pscustomobject]@{ ExitCode = $LASTEXITCODE; Lines = @() } }
+        $output = @(& ssh -i $SshKey @SSH_OPTIONS "root@$ServerHost" "bash $remote; code=`$?; rm -f $remote; exit `$code")
+        $code = $LASTEXITCODE
+        return [pscustomobject]@{ ExitCode = $code; Lines = $output }
+    } finally {
+        if (Test-Path -LiteralPath $local) { Remove-Item -Force -LiteralPath $local -ErrorAction SilentlyContinue }
+    }
 }
 
 try {

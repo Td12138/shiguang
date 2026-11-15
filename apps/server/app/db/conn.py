@@ -78,11 +78,20 @@ class _AmbientConnection:
 
 
 def db_path() -> Path:
-    """当前生效的数据库文件路径（每次读取环境变量，便于测试切换）。"""
+    """当前生效的数据库文件路径。
+
+    优先进程环境变量（测试用），其次 app.config 的解析结果（含 .env），
+    最后回落默认值——避免「脚本直接跑」与「systemd 跑」落到两个库。
+    """
     override = os.getenv(DB_PATH_ENV)
     if override:
         return Path(override).expanduser()
-    return DATA_DIR / DEFAULT_DB_NAME
+    try:
+        from app import config
+
+        return Path(config.DB_PATH)
+    except Exception:
+        return DATA_DIR / DEFAULT_DB_NAME
 
 
 def get_conn() -> sqlite3.Connection:

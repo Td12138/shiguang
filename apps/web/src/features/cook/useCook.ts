@@ -86,7 +86,10 @@ export function useCook(): CookState {
   /** 流式失败时退回非流式：后端不通则 loadSuggestion 会回样例并标 demo */
   const recoverFromStreamError = useCallback(
     async (err: ApiError, body: SuggestRequest): Promise<void> => {
-      if (!isTransportError(err)) {
+      // 传输失败、5xx，或后端还没上线流式端点（404/405）都退回非流式
+      const streamUnavailable =
+        isTransportError(err) || err.status === 404 || err.status === 405;
+      if (!streamUnavailable) {
         setError(describeApiError(err));
         return;
       }

@@ -1,0 +1,49 @@
+{
+  "recommendations": [
+    {
+      "recipe_id": "r_002",
+      "title": "蒜蓉西兰花",
+      "minutes": 12,
+      "reason": "冰箱里的西兰花剩 2 天到期，这道菜只需要再加蒜和油，10 分钟能上桌，先吃掉最急的一样。",
+      "missing": [
+        {"name": "大蒜", "optional": false},
+        {"name": "食用油", "optional": false},
+        {"name": "蚝油", "optional": true}
+      ],
+      "citations": [
+        {"source": "recipe:r_002", "locator": "步骤 1-4"},
+        {"source": "tip:1", "locator": "叶菜买回来别先洗"}
+      ],
+      "score": 0.91
+    },
+    {
+      "recipe_id": "r_001",
+      "title": "番茄炒蛋",
+      "minutes": 10,
+      "reason": "你有 3 个番茄和 6 个鸡蛋，这道菜全用现有食材就能做，不用再买菜，适合今晚先清一轮库存。",
+      "missing": [
+        {"name": "食用油", "optional": false},
+        {"name": "小葱", "optional": true}
+      ],
+      "citations": [
+        {"source": "recipe:r_001", "locator": "步骤 1-5"}
+      ],
+      "score": 0.86
+    },
+    {
+      "recipe_id": "r_003",
+      "title": "菠菜蛋花汤",
+      "minutes": 10,
+      "reason": "菠菜冷藏只能放 3 天，已经是最急的一项；配 2 个鸡蛋煮汤，能一次用掉整把菠菜。",
+      "missing": [
+        {"name": "食用油", "optional": false},
+        {"name": "香油", "optional": true}
+      ],
+      "citations": [
+        {"source": "recipe:r_003", "locator": "步骤 1-4"},
+        {"source": "tip:1", "locator": "叶菜买回来别先洗"}
+      ],
+      "score": 0.78
+    }
+  ]
+}

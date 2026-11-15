@@ -1,0 +1,668 @@
+[
+  {
+    "id": "r_001",
+    "title": "番茄炒蛋",
+    "ingredients": [
+      {"name": "番茄", "qty": 2, "unit": "个", "optional": false},
+      {"name": "鸡蛋", "qty": 3, "unit": "个", "optional": false},
+      {"name": "小葱", "qty": 1, "unit": "根", "optional": true},
+      {"name": "食用油", "qty": 2, "unit": "勺", "optional": false},
+      {"name": "盐", "qty": 2, "unit": "克", "optional": true},
+      {"name": "白糖", "qty": 3, "unit": "克", "optional": true}
+    ],
+    "steps": [
+      "番茄去蒂切滚刀块，鸡蛋打散加一小撮盐搅匀。",
+      "锅烧热放 1 勺油，倒入蛋液，凝固成大块就盛出。",
+      "补 1 勺油下番茄，中火炒到出汁、边缘塌软。",
+      "加白糖和盐炒匀，倒回鸡蛋翻两下。",
+      "撒葱花出锅，汤汁留着拌饭。"
+    ],
+    "minutes": 10,
+    "servings": 2,
+    "tags": ["快手", "清冰箱", "家常"],
+    "difficulty": "简单"
+  },
+  {
+    "id": "r_002",
+    "title": "蒜蓉西兰花",
+    "ingredients": [
+      {"name": "西兰花", "qty": 1, "unit": "颗", "optional": false},
+      {"name": "大蒜", "qty": 3, "unit": "瓣", "optional": false},
+      {"name": "食用油", "qty": 2, "unit": "勺", "optional": false},
+      {"name": "盐", "qty": 2, "unit": "克", "optional": true},
+      {"name": "蚝油", "qty": 1, "unit": "勺", "optional": true}
+    ],
+    "steps": [
+      "西兰花切小朵，淡盐水泡 5 分钟后冲净。",
+      "水开加半勺盐，西兰花焯 40 秒后捞出沥干。",
+      "热锅下油，小火把蒜末炒到微黄出香。",
+      "转大火倒入西兰花翻炒 1 分钟，加蚝油和盐炒匀出锅。"
+    ],
+    "minutes": 12,
+    "servings": 2,
+    "tags": ["快手", "素食", "清冰箱"],
+    "difficulty": "简单"
+  },
+  {
+    "id": "r_003",
+    "title": "菠菜蛋花汤",
+    "ingredients": [
+      {"name": "菠菜", "qty": 1, "unit": "把", "optional": false},
+      {"name": "鸡蛋", "qty": 2, "unit": "个", "optional": false},
+      {"name": "小葱", "qty": 1, "unit": "根", "optional": true},
+      {"name": "食用油", "qty": 1, "unit": "勺", "optional": false},
+      {"name": "盐", "qty": 2, "unit": "克", "optional": true},
+      {"name": "香油", "qty": 3, "unit": "滴", "optional": true}
+    ],
+    "steps": [
+      "菠菜洗净切段，开水焯 15 秒去掉草酸后捞出。",
+      "锅中加 600 毫升水烧开，放盐和 1 勺油。",
+      "鸡蛋打散，沿锅边细流淋入，静置 3 秒再轻推成蛋花。",
+      "下菠菜煮 30 秒关火，撒葱花、滴香油。"
+    ],
+    "minutes": 10,
+    "servings": 2,
+    "tags": ["快手", "汤", "清冰箱"],
+    "difficulty": "简单"
+  },
+  {
+    "id": "r_004",
+    "title": "麻婆豆腐",
+    "ingredients": [
+      {"name": "嫩豆腐", "qty": 1, "unit": "盒", "optional": false},
+      {"name": "牛肉末", "qty": 100, "unit": "克", "optional": false},
+      {"name": "大蒜", "qty": 2, "unit": "瓣", "optional": false},
+      {"name": "生姜", "qty": 1, "unit": "块", "optional": false},
+      {"name": "小葱", "qty": 1, "unit": "根", "optional": true},
+      {"name": "生抽", "qty": 1, "unit": "勺", "optional": false},
+      {"name": "食用油", "qty": 2, "unit": "勺", "optional": false},
+      {"name": "豆瓣酱", "qty": 1, "unit": "勺", "optional": true},
+      {"name": "花椒粉", "qty": 1, "unit": "克", "optional": true},
+      {"name": "淀粉", "qty": 5, "unit": "克", "optional": true}
+    ],
+    "steps": [
+      "豆腐切 2 厘米方块，放淡盐水里泡 5 分钟去豆腥。",
+      "热锅下油，牛肉末炒散炒干，盛出一半备用。",
+      "下姜蒜末和豆瓣酱小火炒出红油，加 200 毫升水烧开。",
+      "轻轻推入豆腐，中小火煮 3 分钟，加生抽调味。",
+      "淀粉加水调匀，分两次淋入勾薄芡。",
+      "撒回牛肉末、花椒粉和葱花即可。"
+    ],
+    "minutes": 20,
+    "servings": 2,
+    "tags": ["下饭", "川味", "清冰箱"],
+    "difficulty": "中等"
+  },
+  {
+    "id": "r_005",
+    "title": "香煎鸡胸肉",
+    "ingredients": [
+      {"name": "鸡胸肉", "qty": 1, "unit": "块", "optional": false},
+      {"name": "大蒜", "qty": 2, "unit": "瓣", "optional": false},
+      {"name": "生抽", "qty": 1, "unit": "勺", "optional": false},
+      {"name": "食用油", "qty": 1, "unit": "勺", "optional": false},
+      {"name": "黑胡椒", "qty": 1, "unit": "克", "optional": true},
+      {"name": "淀粉", "qty": 5, "unit": "克", "optional": true}
+    ],
+    "steps": [
+      "鸡胸横刀片成 1.5 厘米厚片，用刀背轻拍松。",
+      "加蒜末、生抽、黑胡椒和淀粉抓匀，腌 10 分钟。",
+      "平底锅刷薄油，中火每面煎 3 分钟。",
+      "关火盖盖焖 2 分钟，切开无粉色即可。"
+    ],
+    "minutes": 15,
+    "servings": 1,
+    "tags": ["高蛋白", "快手", "低卡"],
+    "difficulty": "简单"
+  },
+  {
+    "id": "r_006",
+    "title": "鸡胸肉蔬菜沙拉",
+    "ingredients": [
+      {"name": "鸡胸肉", "qty": 1, "unit": "块", "optional": false},
+      {"name": "生菜", "qty": 0.5, "unit": "颗", "optional": false},
+      {"name": "番茄", "qty": 1, "unit": "个", "optional": false},
+      {"name": "黄瓜", "qty": 1, "unit": "根", "optional": false},
+      {"name": "柠檬", "qty": 0.5, "unit": "个", "optional": true},
+      {"name": "橄榄油", "qty": 1, "unit": "勺", "optional": true},
+      {"name": "黑胡椒", "qty": 1, "unit": "克", "optional": true},
+      {"name": "盐", "qty": 1, "unit": "克", "optional": true}
+    ],
+    "steps": [
+      "鸡胸肉冷水下锅，加姜片煮 12 分钟，捞出放凉撕条。",
+      "生菜撕小片，用冰水泡 3 分钟更脆，沥干。",
+      "番茄切块、黄瓜拍裂切段。",
+      "柠檬汁、橄榄油、盐和黑胡椒调成油醋汁。",
+      "全部食材装碗，淋汁拌匀即可。"
+    ],
+    "minutes": 15,
+    "servings": 1,
+    "tags": ["低卡", "沙拉", "清冰箱"],
+    "difficulty": "简单"
+  },
+  {
+    "id": "r_007",
+    "title": "番茄鸡蛋面",
+    "ingredients": [
+      {"name": "番茄", "qty": 2, "unit": "个", "optional": false},
+      {"name": "鸡蛋", "qty": 2, "unit": "个", "optional": false},
+      {"name": "面条", "qty": 1, "unit": "份", "optional": false},
+      {"name": "小葱", "qty": 1, "unit": "根", "optional": true},
+      {"name": "食用油", "qty": 2, "unit": "勺", "optional": false},
+      {"name": "生抽", "qty": 1, "unit": "勺", "optional": false},
+      {"name": "盐", "qty": 2, "unit": "克", "optional": true}
+    ],
+    "steps": [
+      "番茄切小块，鸡蛋打散。",
+      "热锅下油炒蛋，凝固即盛出。",
+      "原锅下番茄中火炒 3 分钟，压出浓汁。",
+      "加 500 毫升开水、生抽和盐，煮开成汤底。",
+      "下面条煮到断生，倒回鸡蛋，撒葱花。"
+    ],
+    "minutes": 15,
+    "servings": 1,
+    "tags": ["快手", "一锅出", "清冰箱"],
+    "difficulty": "简单"
+  },
+  {
+    "id": "r_008",
+    "title": "清炒油麦菜",
+    "ingredients": [
+      {"name": "油麦菜", "qty": 1, "unit": "把", "optional": false},
+      {"name": "大蒜", "qty": 3, "unit": "瓣", "optional": false},
+      {"name": "食用油", "qty": 2, "unit": "勺", "optional": false},
+      {"name": "盐", "qty": 2, "unit": "克", "optional": true}
+    ],
+    "steps": [
+      "油麦菜洗净切 5 厘米段，菜梗菜叶分开放。",
+      "大火烧锅到冒烟，下油和蒜末爆香。",
+      "先下菜梗炒 30 秒，再下菜叶。",
+      "全程大火翻 40 秒，加盐立刻出锅。"
+    ],
+    "minutes": 8,
+    "servings": 2,
+    "tags": ["快手", "素食", "清冰箱"],
+    "difficulty": "简单"
+  },
+  {
+    "id": "r_009",
+    "title": "白菜豆腐煲",
+    "ingredients": [
+      {"name": "大白菜", "qty": 0.5, "unit": "颗", "optional": false},
+      {"name": "北豆腐", "qty": 1, "unit": "块", "optional": false},
+      {"name": "五花肉", "qty": 100, "unit": "克", "optional": true},
+      {"name": "生姜", "qty": 1, "unit": "块", "optional": false},
+      {"name": "生抽", "qty": 1, "unit": "勺", "optional": false},
+      {"name": "食用油", "qty": 1, "unit": "勺", "optional": false}
+    ],
+    "steps": [
+      "白菜切大片，菜帮和菜叶分开；豆腐切厚片。",
+      "锅中少油，豆腐两面煎到微黄盛出。",
+      "下五花肉片和姜丝煸出油，先炒菜帮 2 分钟。",
+      "铺上豆腐和菜叶，加生抽和 200 毫升热水。",
+      "盖盖小火炖 8 分钟，收汁到一半即可。"
+    ],
+    "minutes": 25,
+    "servings": 2,
+    "tags": ["清冰箱", "炖菜", "家常"],
+    "difficulty": "简单"
+  },
+  {
+    "id": "r_010",
+    "title": "香菇小白菜",
+    "ingredients": [
+      {"name": "香菇", "qty": 6, "unit": "朵", "optional": false},
+      {"name": "小白菜", "qty": 1, "unit": "把", "optional": false},
+      {"name": "大蒜", "qty": 2, "unit": "瓣", "optional": false},
+      {"name": "蚝油", "qty": 1, "unit": "勺", "optional": false},
+      {"name": "食用油", "qty": 2, "unit": "勺", "optional": false}
+    ],
+    "steps": [
+      "香菇去蒂切厚片，小白菜洗净对半切。",
+      "热锅下油，香菇中火煸 2 分钟到出香出水。",
+      "加蒜末炒香，下小白菜转大火翻炒。",
+      "菜叶塌软后加蚝油炒匀，不再放盐。"
+    ],
+    "minutes": 12,
+    "servings": 2,
+    "tags": ["素食", "清冰箱", "快手"],
+    "difficulty": "简单"
+  },
+  {
+    "id": "r_011",
+    "title": "青椒土豆丝",
+    "ingredients": [
+      {"name": "青椒", "qty": 2, "unit": "个", "optional": false},
+      {"name": "土豆", "qty": 2, "unit": "个", "optional": false},
+      {"name": "大蒜", "qty": 2, "unit": "瓣", "optional": false},
+      {"name": "食用油", "qty": 2, "unit": "勺", "optional": false},
+      {"name": "白醋", "qty": 1, "unit": "勺", "optional": true},
+      {"name": "盐", "qty": 2, "unit": "克", "optional": true}
+    ],
+    "steps": [
+      "土豆去皮切细丝，清水淘两遍洗掉淀粉，泡水备用。",
+      "青椒去籽切丝，大蒜拍碎。",
+      "锅烧到冒烟下油，爆香蒜末。",
+      "土豆丝沥干下锅，大火快炒 1 分钟。",
+      "下青椒丝、白醋和盐，再炒 40 秒出锅。"
+    ],
+    "minutes": 15,
+    "servings": 2,
+    "tags": ["快手", "素食", "下饭"],
+    "difficulty": "简单"
+  },
+  {
+    "id": "r_012",
+    "title": "洋葱炒鸡蛋",
+    "ingredients": [
+      {"name": "洋葱", "qty": 1, "unit": "个", "optional": false},
+      {"name": "鸡蛋", "qty": 3, "unit": "个", "optional": false},
+      {"name": "生抽", "qty": 1, "unit": "勺", "optional": false},
+      {"name": "食用油", "qty": 2, "unit": "勺", "optional": false},
+      {"name": "盐", "qty": 1, "unit": "克", "optional": true}
+    ],
+    "steps": [
+      "洋葱切粗丝，抖散；鸡蛋加盐打散。",
+      "热锅下 1 勺油，蛋液炒成块盛出。",
+      "补油下洋葱，中火炒 2 分钟到边缘透明。",
+      "倒回鸡蛋，淋生抽快速翻匀出锅。"
+    ],
+    "minutes": 12,
+    "servings": 2,
+    "tags": ["快手", "清冰箱", "家常"],
+    "difficulty": "简单"
+  },
+  {
+    "id": "r_013",
+    "title": "胡萝卜炒肉丝",
+    "ingredients": [
+      {"name": "胡萝卜", "qty": 2, "unit": "根", "optional": false},
+      {"name": "猪里脊", "qty": 200, "unit": "克", "optional": false},
+      {"name": "大蒜", "qty": 2, "unit": "瓣", "optional": false},
+      {"name": "生抽", "qty": 1, "unit": "勺", "optional": false},
+      {"name": "食用油", "qty": 2, "unit": "勺", "optional": false},
+      {"name": "淀粉", "qty": 5, "unit": "克", "optional": true}
+    ],
+    "steps": [
+      "里脊切细丝，加生抽和淀粉抓匀腌 10 分钟。",
+      "胡萝卜切丝，大蒜切片。",
+      "热锅多放点油，肉丝下锅滑散，变色即盛出。",
+      "原锅下蒜片和胡萝卜丝，中火炒 3 分钟至变软。",
+      "倒回肉丝，大火翻匀，尝味后补盐。"
+    ],
+    "minutes": 15,
+    "servings": 2,
+    "tags": ["快手", "下饭", "家常"],
+    "difficulty": "简单"
+  },
+  {
+    "id": "r_014",
+    "title": "家常烧茄子",
+    "ingredients": [
+      {"name": "茄子", "qty": 2, "unit": "根", "optional": false},
+      {"name": "大蒜", "qty": 3, "unit": "瓣", "optional": false},
+      {"name": "生抽", "qty": 2, "unit": "勺", "optional": false},
+      {"name": "蚝油", "qty": 1, "unit": "勺", "optional": false},
+      {"name": "食用油", "qty": 3, "unit": "勺", "optional": false},
+      {"name": "白糖", "qty": 3, "unit": "克", "optional": true}
+    ],
+    "steps": [
+      "茄子切滚刀块，撒盐抓匀腌 10 分钟，挤掉水分。",
+      "生抽、蚝油、白糖加 100 毫升水调成料汁。",
+      "锅中放油，茄子中火煎到各面微焦。",
+      "拨到一边，下蒜末炒香，倒入料汁。",
+      "盖盖小火焖 5 分钟，开盖收汁即可。"
+    ],
+    "minutes": 20,
+    "servings": 2,
+    "tags": ["下饭", "清冰箱", "家常"],
+    "difficulty": "简单"
+  },
+  {
+    "id": "r_015",
+    "title": "金针菇肥牛卷",
+    "ingredients": [
+      {"name": "金针菇", "qty": 1, "unit": "袋", "optional": false},
+      {"name": "冷冻牛肉卷", "qty": 200, "unit": "克", "optional": false},
+      {"name": "大蒜", "qty": 2, "unit": "瓣", "optional": false},
+      {"name": "小葱", "qty": 1, "unit": "根", "optional": true},
+      {"name": "生抽", "qty": 1, "unit": "勺", "optional": false},
+      {"name": "食用油", "qty": 1, "unit": "勺", "optional": false}
+    ],
+    "steps": [
+      "金针菇切根撕散，用牛肉卷逐份卷起。",
+      "平底锅少油，卷口朝下中火煎 1 分钟定型。",
+      "翻面再煎 1 分钟，加蒜末和生抽。",
+      "加 50 毫升水盖盖焖 2 分钟，撒葱花出锅。"
+    ],
+    "minutes": 15,
+    "servings": 2,
+    "tags": ["快手", "下饭", "清冰箱"],
+    "difficulty": "简单"
+  },
+  {
+    "id": "r_016",
+    "title": "四季豆炒肉末",
+    "ingredients": [
+      {"name": "四季豆", "qty": 1, "unit": "把", "optional": false},
+      {"name": "牛肉末", "qty": 150, "unit": "克", "optional": false},
+      {"name": "大蒜", "qty": 2, "unit": "瓣", "optional": false},
+      {"name": "生抽", "qty": 1, "unit": "勺", "optional": false},
+      {"name": "食用油", "qty": 2, "unit": "勺", "optional": false},
+      {"name": "干辣椒", "qty": 2, "unit": "个", "optional": true}
+    ],
+    "steps": [
+      "四季豆掐头去筋，切 0.5 厘米小丁。",
+      "水开下四季豆焯 2 分钟，捞出沥干。",
+      "热锅下油，肉末炒散炒到微干。",
+      "加蒜末、干辣椒和生抽炒香。",
+      "倒入四季豆，中火翻炒 3 分钟至表皮起皱，务必炒熟。"
+    ],
+    "minutes": 18,
+    "servings": 2,
+    "tags": ["下饭", "清冰箱", "家常"],
+    "difficulty": "中等"
+  },
+  {
+    "id": "r_017",
+    "title": "香蕉牛奶昔",
+    "ingredients": [
+      {"name": "香蕉", "qty": 1, "unit": "根", "optional": false},
+      {"name": "牛奶", "qty": 250, "unit": "毫升", "optional": false},
+      {"name": "蜂蜜", "qty": 1, "unit": "勺", "optional": true}
+    ],
+    "steps": [
+      "香蕉剥皮切段，皮发黑的更甜。",
+      "香蕉、牛奶、蜂蜜一起放进搅拌机。",
+      "高速打 30 秒到顺滑，倒出立刻喝。"
+    ],
+    "minutes": 5,
+    "servings": 1,
+    "tags": ["快手", "早餐", "甜品"],
+    "difficulty": "简单"
+  },
+  {
+    "id": "r_018",
+    "title": "草莓酸奶杯",
+    "ingredients": [
+      {"name": "草莓", "qty": 6, "unit": "颗", "optional": false},
+      {"name": "酸奶", "qty": 2, "unit": "杯", "optional": false},
+      {"name": "蓝莓", "qty": 1, "unit": "盒", "optional": true},
+      {"name": "蜂蜜", "qty": 1, "unit": "勺", "optional": true}
+    ],
+    "steps": [
+      "草莓留 2 颗装饰，其余去蒂切小块。",
+      "草莓块压成粗果泥，拌入一半酸奶。",
+      "杯中交替铺果泥酸奶和纯酸奶。",
+      "顶部放整颗草莓、蓝莓，淋蜂蜜。"
+    ],
+    "minutes": 5,
+    "servings": 1,
+    "tags": ["快手", "早餐", "甜品"],
+    "difficulty": "简单"
+  },
+  {
+    "id": "r_019",
+    "title": "奶酪番茄吐司",
+    "ingredients": [
+      {"name": "全麦面包", "qty": 2, "unit": "片", "optional": false},
+      {"name": "奶酪", "qty": 50, "unit": "克", "optional": false},
+      {"name": "番茄", "qty": 1, "unit": "个", "optional": false},
+      {"name": "黄油", "qty": 10, "unit": "克", "optional": false},
+      {"name": "黑胡椒", "qty": 1, "unit": "克", "optional": true}
+    ],
+    "steps": [
+      "面包单面抹薄黄油，番茄切 5 毫米厚片。",
+      "番茄片铺在面包上，撒黑胡椒。",
+      "奶酪切片盖满，边缘留 1 厘米防流。",
+      "烤箱 200℃ 烤 6 分钟，或平底锅盖盖小火烙 5 分钟。"
+    ],
+    "minutes": 8,
+    "servings": 1,
+    "tags": ["快手", "早餐", "西式"],
+    "difficulty": "简单"
+  },
+  {
+    "id": "r_020",
+    "title": "豆浆蒸蛋",
+    "ingredients": [
+      {"name": "豆浆", "qty": 200, "unit": "毫升", "optional": false},
+      {"name": "鸡蛋", "qty": 2, "unit": "个", "optional": false},
+      {"name": "小葱", "qty": 1, "unit": "根", "optional": true},
+      {"name": "生抽", "qty": 1, "unit": "勺", "optional": true},
+      {"name": "香油", "qty": 2, "unit": "滴", "optional": true}
+    ],
+    "steps": [
+      "鸡蛋打散，加温豆浆搅匀，豆浆和蛋液约 1:1。",
+      "蛋液过筛两遍，撇掉表面气泡。",
+      "碗上盖盘子或保鲜膜，水开后中小火蒸 12 分钟。",
+      "关火焖 2 分钟，淋生抽、香油，撒葱花。"
+    ],
+    "minutes": 18,
+    "servings": 1,
+    "tags": ["快手", "清淡", "早餐"],
+    "difficulty": "简单"
+  },
+  {
+    "id": "r_021",
+    "title": "蛋炒饭",
+    "ingredients": [
+      {"name": "米饭", "qty": 1, "unit": "碗", "optional": false},
+      {"name": "鸡蛋", "qty": 2, "unit": "个", "optional": false},
+      {"name": "胡萝卜", "qty": 0.5, "unit": "根", "optional": true},
+      {"name": "小葱", "qty": 1, "unit": "根", "optional": false},
+      {"name": "食用油", "qty": 2, "unit": "勺", "optional": false},
+      {"name": "盐", "qty": 2, "unit": "克", "optional": true}
+    ],
+    "steps": [
+      "隔夜米饭用手抓散，胡萝卜切小丁。",
+      "热锅下油，蛋液炒散成小块。",
+      "下胡萝卜丁炒 1 分钟，倒入米饭。",
+      "大火翻炒到米粒跳动，加盐调味。",
+      "撒葱花，沿锅边淋几滴水再炒 20 秒出锅。"
+    ],
+    "minutes": 10,
+    "servings": 1,
+    "tags": ["快手", "清冰箱", "主食"],
+    "difficulty": "简单"
+  },
+  {
+    "id": "r_022",
+    "title": "红烧肉盖饭",
+    "ingredients": [
+      {"name": "剩红烧肉", "qty": 1, "unit": "盒", "optional": false},
+      {"name": "米饭", "qty": 1, "unit": "碗", "optional": false},
+      {"name": "小白菜", "qty": 0.5, "unit": "把", "optional": true},
+      {"name": "生抽", "qty": 1, "unit": "勺", "optional": true}
+    ],
+    "steps": [
+      "剩红烧肉连汁倒进小锅，加 50 毫升水。",
+      "小火加热到冒泡，翻动避免糊底。",
+      "另起锅焯小白菜 40 秒，捞出沥干。",
+      "米饭装碗，铺红烧肉浇汁，配小白菜。"
+    ],
+    "minutes": 10,
+    "servings": 1,
+    "tags": ["快手", "清冰箱", "主食"],
+    "difficulty": "简单"
+  },
+  {
+    "id": "r_023",
+    "title": "鸡汤面",
+    "ingredients": [
+      {"name": "剩鸡汤", "qty": 1, "unit": "盒", "optional": false},
+      {"name": "面条", "qty": 1, "unit": "份", "optional": false},
+      {"name": "小白菜", "qty": 0.5, "unit": "把", "optional": false},
+      {"name": "小葱", "qty": 1, "unit": "根", "optional": true}
+    ],
+    "steps": [
+      "鸡汤煮沸，撇掉表面浮油。",
+      "下面条，按包装时间煮到断生。",
+      "小白菜切段，最后 1 分钟下锅。",
+      "尝咸淡后盛碗，撒葱花即可。"
+    ],
+    "minutes": 12,
+    "servings": 1,
+    "tags": ["快手", "清冰箱", "主食"],
+    "difficulty": "简单"
+  },
+  {
+    "id": "r_024",
+    "title": "白菜牛肉煎饺",
+    "ingredients": [
+      {"name": "饺子皮", "qty": 1, "unit": "袋", "optional": false},
+      {"name": "大白菜", "qty": 0.5, "unit": "颗", "optional": false},
+      {"name": "牛肉末", "qty": 300, "unit": "克", "optional": false},
+      {"name": "生姜", "qty": 1, "unit": "块", "optional": false},
+      {"name": "生抽", "qty": 2, "unit": "勺", "optional": false},
+      {"name": "食用油", "qty": 2, "unit": "勺", "optional": false},
+      {"name": "香油", "qty": 1, "unit": "勺", "optional": true}
+    ],
+    "steps": [
+      "白菜切碎，撒盐腌 10 分钟，用手挤干水分。",
+      "牛肉末加姜末、生抽和香油，顺一个方向搅上劲。",
+      "拌入白菜碎，包进饺子皮，边缘捏紧。",
+      "平底锅刷油，饺子摆好中火煎 2 分钟到底部金黄。",
+      "倒入没过饺子 1/3 的水，盖盖焖 8 分钟。",
+      "开盖收干水分，淋少许油再煎 1 分钟起脆底。"
+    ],
+    "minutes": 40,
+    "servings": 3,
+    "tags": ["主食", "清冰箱", "手工"],
+    "difficulty": "中等"
+  },
+  {
+    "id": "r_025",
+    "title": "香煎馒头片",
+    "ingredients": [
+      {"name": "馒头", "qty": 2, "unit": "个", "optional": false},
+      {"name": "鸡蛋", "qty": 1, "unit": "个", "optional": false},
+      {"name": "黄油", "qty": 10, "unit": "克", "optional": false},
+      {"name": "白糖", "qty": 5, "unit": "克", "optional": true}
+    ],
+    "steps": [
+      "馒头切 1.5 厘米厚片，隔夜馒头更好切。",
+      "鸡蛋打散，馒头片两面裹匀蛋液。",
+      "平底锅化开黄油，中小火煎馒头片。",
+      "每面煎 2 分钟到金黄，趁热撒白糖。"
+    ],
+    "minutes": 10,
+    "servings": 1,
+    "tags": ["快手", "早餐", "清冰箱"],
+    "difficulty": "简单"
+  },
+  {
+    "id": "r_026",
+    "title": "腐竹拌黄瓜",
+    "ingredients": [
+      {"name": "腐竹", "qty": 100, "unit": "克", "optional": false},
+      {"name": "黄瓜", "qty": 1, "unit": "根", "optional": false},
+      {"name": "大蒜", "qty": 3, "unit": "瓣", "optional": false},
+      {"name": "生抽", "qty": 1, "unit": "勺", "optional": false},
+      {"name": "香醋", "qty": 1, "unit": "勺", "optional": true},
+      {"name": "香油", "qty": 1, "unit": "勺", "optional": true},
+      {"name": "辣椒油", "qty": 1, "unit": "勺", "optional": true}
+    ],
+    "steps": [
+      "腐竹提前用温水泡 2 小时，泡到中心无硬芯。",
+      "腐竹下开水焯 1 分钟，捞出过凉水挤干切段。",
+      "黄瓜拍裂切段，大蒜捣成蒜泥。",
+      "蒜泥、生抽、香醋、香油、辣椒油调成料汁。",
+      "腐竹和黄瓜拌匀，淋汁腌 5 分钟更入味。"
+    ],
+    "minutes": 15,
+    "servings": 2,
+    "tags": ["凉菜", "素食", "清冰箱"],
+    "difficulty": "简单"
+  },
+  {
+    "id": "r_027",
+    "title": "香煎三文鱼",
+    "ingredients": [
+      {"name": "三文鱼", "qty": 1, "unit": "块", "optional": false},
+      {"name": "柠檬", "qty": 0.5, "unit": "个", "optional": false},
+      {"name": "黄油", "qty": 10, "unit": "克", "optional": false},
+      {"name": "黑胡椒", "qty": 1, "unit": "克", "optional": true},
+      {"name": "盐", "qty": 2, "unit": "克", "optional": true}
+    ],
+    "steps": [
+      "三文鱼用厨房纸吸干水，两面撒盐和黑胡椒。",
+      "平底锅烧热，鱼皮朝下不放油，中火煎 3 分钟。",
+      "翻面加黄油，用勺把化开的黄油反复浇在鱼上。",
+      "再煎 2 分钟，关火静置 2 分钟，挤柠檬汁。"
+    ],
+    "minutes": 15,
+    "servings": 1,
+    "tags": ["高蛋白", "西式", "快手"],
+    "difficulty": "中等"
+  },
+  {
+    "id": "r_028",
+    "title": "虾仁滑蛋",
+    "ingredients": [
+      {"name": "冷冻虾仁", "qty": 150, "unit": "克", "optional": false},
+      {"name": "鸡蛋", "qty": 3, "unit": "个", "optional": false},
+      {"name": "小葱", "qty": 1, "unit": "根", "optional": true},
+      {"name": "食用油", "qty": 2, "unit": "勺", "optional": false},
+      {"name": "淀粉", "qty": 5, "unit": "克", "optional": true},
+      {"name": "盐", "qty": 2, "unit": "克", "optional": true}
+    ],
+    "steps": [
+      "虾仁冷藏解冻，加盐和淀粉抓洗后擦干。",
+      "鸡蛋打散，加 1 勺水和少许盐搅匀。",
+      "热锅下油，虾仁中火炒到变色盛出。",
+      "转小火倒蛋液，等边缘凝固就用铲子往中间推。",
+      "蛋液七成凝固时倒回虾仁，翻两下立刻出锅。"
+    ],
+    "minutes": 12,
+    "servings": 2,
+    "tags": ["高蛋白", "快手", "清冰箱"],
+    "difficulty": "中等"
+  },
+  {
+    "id": "r_029",
+    "title": "土豆炖牛腩",
+    "ingredients": [
+      {"name": "牛腩", "qty": 500, "unit": "克", "optional": false},
+      {"name": "土豆", "qty": 2, "unit": "个", "optional": false},
+      {"name": "胡萝卜", "qty": 1, "unit": "根", "optional": false},
+      {"name": "洋葱", "qty": 1, "unit": "个", "optional": false},
+      {"name": "生姜", "qty": 1, "unit": "块", "optional": false},
+      {"name": "生抽", "qty": 2, "unit": "勺", "optional": false},
+      {"name": "料酒", "qty": 2, "unit": "勺", "optional": true}
+    ],
+    "steps": [
+      "牛腩切 3 厘米块，冷水下锅加料酒焯 5 分钟，撇净浮沫。",
+      "锅中少油炒香洋葱块和姜片，下牛腩翻炒 2 分钟。",
+      "加生抽和 800 毫升热水，大火烧开转小火炖 50 分钟。",
+      "土豆、胡萝卜切滚刀块，下锅再炖 25 分钟。",
+      "筷子能轻松插入牛腩时收汁，尝味后补盐。"
+    ],
+    "minutes": 90,
+    "servings": 3,
+    "tags": ["炖菜", "下饭", "清冰箱"],
+    "difficulty": "中等"
+  },
+  {
+    "id": "r_030",
+    "title": "蒜香鸡翅",
+    "ingredients": [
+      {"name": "鸡翅", "qty": 1, "unit": "袋", "optional": false},
+      {"name": "大蒜", "qty": 4, "unit": "瓣", "optional": false},
+      {"name": "生抽", "qty": 2, "unit": "勺", "optional": false},
+      {"name": "食用油", "qty": 1, "unit": "勺", "optional": false},
+      {"name": "蜂蜜", "qty": 1, "unit": "勺", "optional": true},
+      {"name": "黑胡椒", "qty": 1, "unit": "克", "optional": true}
+    ],
+    "steps": [
+      "鸡翅两面各划两刀，冷水泡 10 分钟去血水后擦干。",
+      "蒜末、生抽、蜂蜜、黑胡椒和油抓匀，腌 30 分钟。",
+      "烤箱 200℃ 烤 20 分钟，中途翻面刷一次腌料。",
+      "没有烤箱就平底锅少油小火煎，每面 5 分钟盖盖焖熟。"
+    ],
+    "minutes": 25,
+    "servings": 2,
+    "tags": ["烤箱", "下饭", "高蛋白"],
+    "difficulty": "中等"
+  }
+]

@@ -1,0 +1,12 @@
+{
+  "items": [
+    {"name": "鸡蛋", "qty": 6, "unit": "个", "confidence": 0.96},
+    {"name": "西兰花", "qty": 1, "unit": "颗", "confidence": 0.94},
+    {"name": "米饭", "qty": 1, "unit": "碗", "confidence": 0.9},
+    {"name": "番茄", "qty": 3, "unit": "个", "confidence": 0.88},
+    {"name": "菠菜", "qty": 1, "unit": "把", "confidence": 0.86},
+    {"name": "秋葵", "qty": 1, "unit": "把", "confidence": 0.81},
+    {"name": "鸡胸肉", "qty": 1, "unit": "块", "confidence": 0.72},
+    {"name": "酸奶", "qty": 2, "unit": "杯", "confidence": 0.55}
+  ]
+}

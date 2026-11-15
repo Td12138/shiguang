@@ -71,9 +71,9 @@
 
 | 项 | 状态 |
 |---|---|
-| 代码仓库 | ✅ 已推 GitHub `Td12138/shiguang`（41 个细粒度提交；提交时转 public 或提供评审访问） |
+| 代码仓库 | ✅ 已推 GitHub `Td12138/shiguang`（45 个细粒度提交，已转 public） |
 | README / 环境说明 | ✅ |
 | LICENSE / 第三方清单 | ✅ |
 | 在线 Demo | ✅ `http://47.100.224.209:8720`（Basic 认证，mock 模式） |
-| 技术文档 PDF ≤30 页 | ⏳ 正在写（docs/04） |
-| 演示视频 5–8 min | ⏳ 脚本定稿中（docs/05），需自备素材录制 |
+| 技术文档 PDF ≤30 页 | ✅ 已出（`outputs/chuanzhi-aiweb/食光-技术文档.pdf`，A4 8 页，含封面与页脚页码） |
+| 演示视频 5–8 min | ⏳ 脚本定稿（docs/05，7:05），待录制 |

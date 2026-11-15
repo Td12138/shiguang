@@ -1,0 +1,16 @@
+[Unit]
+Description=Shiguang demo (Chuanzhi Cup AI WEB)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/shiguang/current/apps/server
+EnvironmentFile=/opt/shiguang/shared/.env
+ExecStart=/opt/shiguang/venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8720 --workers 1
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

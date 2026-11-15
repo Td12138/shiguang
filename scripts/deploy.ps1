@@ -44,7 +44,7 @@ scp -i $SshKey -o StrictHostKeyChecking=accept-new $archive "root@${ServerHost}:
 
 Write-Host "[4/5] 远端解包并切软链"
 $remoteRelease = "$RemoteRoot/releases/$releaseName"
-ssh -i $SshKey "root@$ServerHost" "set -e; mkdir -p $remoteRelease; tar -xzf $remoteArchive -C $remoteRelease; rm -f $remoteArchive; chmod +x $remoteRelease/apps/server/scripts/*.py 2>/dev/null || true; ln -sfn $remoteRelease $RemoteRoot/current"
+ssh -i $SshKey "root@$ServerHost" "set -e; mkdir -p $remoteRelease; tar -xzf $remoteArchive -C $remoteRelease; rm -f $remoteArchive; ln -sfn $RemoteRoot/shared/.env $remoteRelease/apps/server/.env; chmod +x $remoteRelease/apps/server/scripts/*.py 2>/dev/null || true; ln -sfn $remoteRelease $RemoteRoot/current"
 if ($LastExitCode -ne 0) { throw "远端解包失败" }
 
 if ($FirstRun) {

@@ -8,9 +8,14 @@ env/
 dist/
 build/
 
-# 本地配置（密钥只写在这里，永不入库）
+# 本地配置（密钥只写在这里，永不入库；只放行示例文件）
 .env
-.env.local
+.env.*
+!.env.example
+
+# 测试/构建缓存
+.pytest_cache/
+*.tsbuildinfo
 
 # 运行时数据
 data/index/
@@ -22,7 +27,8 @@ apps/server/data/
 
 samples/
 
-# LaTeX 中间产物
+# LaTeX 中间产物与生成物（PDF 作为提交物另存 outputs/，不入库）
+docs/tech-report/*.pdf
 docs/tech-report/*.aux
 docs/tech-report/*.log
 docs/tech-report/*.out

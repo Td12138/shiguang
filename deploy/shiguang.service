@@ -1,16 +1,31 @@
 [Unit]
 Description=Shiguang demo (Chuanzhi Cup AI WEB)
 After=network.target
+# 崩溃重启不受启动频率限制（演示站要自己爬起来）
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
+# 专用系统用户：不给登录、无 home；线上不得用 root 跑 Web
+User=shiguang
+Group=shiguang
 WorkingDirectory=/opt/shiguang/current/apps/server
 EnvironmentFile=/opt/shiguang/shared/.env
+Environment=PYTHONDONTWRITEBYTECODE=1
 ExecStart=/opt/shiguang/venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8720 --workers 1
 Restart=always
 RestartSec=3
+UMask=0027
 StandardOutput=journal
 StandardError=journal
+
+# ---- 加固（只放开 shared：app.db 与 upload 是唯一需要写的目录）
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/shiguang/shared
+CapabilityBoundingSet=
 
 [Install]
 WantedBy=multi-user.target

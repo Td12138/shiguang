@@ -1,0 +1,9 @@
+# 统一换行：脚本/服务单元必须 LF，避免 Windows clone 后远端 bash 读到 \r
+*.sh text eol=lf
+*.service text eol=lf
+*.py text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.css text eol=lf
+*.md text eol=lf
+*.ps1 text eol=crlf

@@ -44,7 +44,9 @@ EXT_BY_MIME = {
 VISION_PROMPT = (
     "你是冰箱食材识别助手。请识别图片里所有可食用食材，输出 JSON："
     '{"items":[{"name":"西兰花","qty":1,"unit":"颗","confidence":0.92}]}。'
-    "name 用常见中文名；qty 是数量；confidence 是 0~1 的置信度；不确定就调低 confidence，不要编造。"
+    "name 用常见中文名；qty 是数量（看不清就给 null，不要编）。"
+    "confidence 请保守估计：完整清晰可见给 0.85-0.95；被遮挡或只看到一角给 0.5-0.7；"
+    "看不清、靠猜给 0.3 以下。宁可标低，也不要一律给 1.0。"
 )
 
 

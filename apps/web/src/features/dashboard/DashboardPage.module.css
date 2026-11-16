@@ -1,3 +1,69 @@
+.hero {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #f0e2cd;
+  border-radius: var(--radius-xl);
+  background-color: #fdf3e3;
+  background-image:
+    linear-gradient(90deg, #fdf3e3 0%, rgb(253 243 227 / 94%) 34%, rgb(253 243 227 / 45%) 58%, rgb(253 243 227 / 0%) 82%),
+    url('/hero-kitchen.jpg');
+  background-size: cover;
+  background-position: center right;
+  box-shadow: var(--shadow-md);
+}
+
+.heroText {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  max-width: 54%;
+  padding: 30px 32px;
+}
+
+.heroKicker {
+  font-size: var(--fs-1);
+  letter-spacing: 0.18em;
+  color: var(--color-primary-deep);
+}
+
+.heroTitle {
+  font-family: var(--font-display);
+  font-weight: var(--fw-heavy);
+  font-size: var(--fs-6);
+  letter-spacing: 0.02em;
+  color: var(--color-text);
+}
+
+.heroDesc {
+  font-size: var(--fs-2);
+  color: var(--color-text-muted);
+}
+
+.heroActions {
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+@media (max-width: 767px) {
+  .hero {
+    background-image:
+      linear-gradient(90deg, rgb(253 243 227 / 96%) 0%, rgb(253 243 227 / 82%) 60%, rgb(253 243 227 / 55%) 100%),
+      url('/hero-kitchen.jpg');
+    background-position: 70% center;
+  }
+
+  .heroText {
+    max-width: 100%;
+    padding: 22px 20px;
+  }
+
+  .heroTitle {
+    font-size: var(--fs-5);
+  }
+}
+
 .emptyCard {
   display: grid;
   gap: var(--space-1);

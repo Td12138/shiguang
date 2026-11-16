@@ -2,6 +2,7 @@ import type { InventoryItem } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ItemCard } from '@/components/ui/ItemCard';
+import { CategoryIcon } from './CategoryIcon';
 import type { CategoryGroup } from './selectors';
 import styles from './FridgeOverview.module.css';
 
@@ -21,6 +22,7 @@ export function FridgeOverview({ groups, total, onEdit, onDiscard }: FridgeOverv
         {groups.map((group) => (
           <section key={group.name} className={styles.group} aria-labelledby={`category-${group.name}`}>
             <h3 id={`category-${group.name}`} className={styles.groupTitle}>
+              <CategoryIcon name={group.name} />
               {group.name}
               <span className={styles.count}>{group.items.length}</span>
             </h3>

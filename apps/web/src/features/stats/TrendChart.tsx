@@ -6,15 +6,16 @@ export interface TrendChartProps {
   points: StatsTrendPoint[];
 }
 
-const WIDTH = 640;
-const HEIGHT = 200;
-const PAD_X = 10;
-const PAD_TOP = 10;
-const PAD_BOTTOM = 26;
+const WIDTH = 680;
+const HEIGHT = 220;
+const PAD_X = 16;
+const PAD_TOP = 12;
+const PAD_BOTTOM = 30;
 const INNER_W = WIDTH - PAD_X * 2;
 const INNER_H = HEIGHT - PAD_TOP - PAD_BOTTOM;
-const MAX_BAR_WIDTH = 20;
+const MAX_BAR_WIDTH = 18;
 const LABEL_EVERY = 5;
+const GRID_LINES = [0.25, 0.5, 0.75, 1];
 
 /** 手写 SVG 双色堆叠柱：绿色 = 吃掉，红色 = 扔掉，单位克 */
 export function TrendChart({ points }: TrendChartProps) {
@@ -33,6 +34,19 @@ export function TrendChart({ points }: TrendChartProps) {
         role="img"
         aria-label={`每日趋势：区间内吃掉 ${Math.round(savedTotal)} 克，扔掉 ${Math.round(thrownTotal)} 克`}
       >
+        {GRID_LINES.map((ratio) => {
+          const y = PAD_TOP + INNER_H * (1 - ratio);
+          return (
+            <line
+              key={ratio}
+              x1={PAD_X}
+              y1={y}
+              x2={WIDTH - PAD_X}
+              y2={y}
+              className={styles.gridLine}
+            />
+          );
+        })}
         <line
           x1={PAD_X}
           y1={PAD_TOP + INNER_H}
@@ -56,7 +70,7 @@ export function TrendChart({ points }: TrendChartProps) {
                   y={savedY}
                   width={barWidth}
                   height={Math.max(1, savedHeight)}
-                  rx={2}
+                  rx={4}
                   className={styles.saved}
                 >
                   <title>{`${shortDate(point.date)} 吃掉 ${Math.round(point.saved)} g`}</title>
@@ -68,7 +82,7 @@ export function TrendChart({ points }: TrendChartProps) {
                   y={thrownY}
                   width={barWidth}
                   height={Math.max(1, thrownHeight)}
-                  rx={2}
+                  rx={4}
                   className={styles.thrown}
                 >
                   <title>{`${shortDate(point.date)} 扔掉 ${Math.round(point.thrown)} g`}</title>

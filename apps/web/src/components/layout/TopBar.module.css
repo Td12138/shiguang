@@ -23,13 +23,16 @@
 
 .subtitle {
   font-size: var(--fs-1);
-  color: var(--color-text-faint);
-  letter-spacing: 0.02em;
+  color: var(--color-primary-deep);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 .title {
-  font-size: var(--fs-5);
+  font-family: var(--font-display);
+  font-size: var(--fs-6);
   color: var(--color-text);
+  letter-spacing: 0.03em;
 }
 
 .meta {
@@ -53,7 +56,7 @@
   }
 
   .title {
-    font-size: var(--fs-4);
+    font-size: var(--fs-5);
   }
 
   .meta {

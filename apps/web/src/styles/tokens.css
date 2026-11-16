@@ -1,33 +1,41 @@
 /* ==========================================================================
-   食光 · 设计令牌
-   原则：卡片化、留白大、信息密度低；8pt 间距；仅两档字重；不做深色模式
+   食光 · 设计令牌 —— 暖阳厨房
+   暖纸底 / 柑橘橙主行动色 / 深厨绿结构色 / 草本绿表示新鲜
+   变量名保持稳定，组件层只换肤不改逻辑
    ========================================================================== */
 
 :root {
-  /* 颜色 —— 主色深绿 / 背景米白 / 强调橙 / 危险红 */
-  --color-primary: #1f6f54;
-  --color-primary-hover: #185a44;
-  --color-primary-soft: #e7f0eb;
-  --color-primary-deep: #123f30;
+  /* 主色：柑橘橙（行动、强调） */
+  --color-primary: #e4572e;
+  --color-primary-hover: #c8431f;
+  --color-primary-soft: #fbe7dc;
+  --color-primary-deep: #8f3716;
 
-  --color-bg: #f7f5ef;
-  --color-surface: #ffffff;
-  --color-surface-muted: #fbfaf6;
+  /* 结构色：深厨绿（侧栏、品牌、对比强调） */
+  --color-teal: #22423c;
+  --color-teal-soft: #e4ece5;
 
-  --color-accent: #e8873a;
-  --color-accent-soft: #fcebdd;
+  /* 背景：暖纸白，表面带一点奶白 */
+  --color-bg: #faf4e9;
+  --color-surface: #fffdf8;
+  --color-surface-muted: #f4ebdc;
 
-  --color-danger: #d1495b;
-  --color-danger-soft: #fbe7e9;
+  /* 辅色：熟黄（提示、点缀） */
+  --color-accent: #b97b16;
+  --color-accent-soft: #f8edce;
 
-  --color-warn: #b8860b;
-  --color-warn-soft: #fdf3d8;
+  --color-danger: #c93a2e;
+  --color-danger-soft: #f9e4de;
 
-  --color-text: #1b1b1b;
-  --color-text-muted: #585852;
-  --color-text-faint: #8a8a82;
-  --color-border: #e4e0d4;
-  --color-border-strong: #cfc9b8;
+  --color-warn: #a8740a;
+  --color-warn-soft: #f8edce;
+
+  /* 墨色：暖黑而不是纯黑 */
+  --color-text: #2c2721;
+  --color-text-muted: #6e6355;
+  --color-text-faint: #9c9081;
+  --color-border: #eadfcc;
+  --color-border-strong: #d8c9af;
 
   /* 8pt 间距刻度 */
   --space-1: 8px;
@@ -38,16 +46,20 @@
   --space-6: 48px;
   --space-8: 64px;
 
-  /* 圆角：只用 12 / 16 两档，胶囊单独一档 */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
+  /* 圆角：更大更软，厨房器物感 */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
   --radius-pill: 999px;
 
-  /* 字体 */
+  /* 字体：统一圆润无衬线，标题加重字重而不是换衬线 */
   --font-sans:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
     'Microsoft YaHei', 'Source Han Sans SC', 'Noto Sans CJK SC', sans-serif;
+  --font-display:
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', 'Source Han Sans SC', 'Noto Sans CJK SC', sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo, Consolas, monospace;
 
   --fs-1: 12px;
@@ -61,19 +73,19 @@
   --lh-tight: 1.25;
   --lh-normal: 1.6;
 
-  /* 全站只用两档字重 */
   --fw-regular: 400;
   --fw-bold: 600;
+  --fw-heavy: 800;
 
-  /* 阴影 / 过渡 */
-  --shadow-sm: 0 1px 2px rgb(27 27 27 / 6%);
-  --shadow-md: 0 8px 24px rgb(27 27 27 / 8%);
-  --shadow-lg: 0 24px 60px rgb(27 27 27 / 16%);
-  --transition: 160ms ease;
+  /* 阴影：暖棕调色，柔和分层，避免灰色AI投影 */
+  --shadow-sm: 0 1px 2px rgb(88 62 32 / 5%), 0 2px 8px rgb(88 62 32 / 4%);
+  --shadow-md: 0 2px 6px rgb(88 62 32 / 5%), 0 14px 30px -10px rgb(88 62 32 / 16%);
+  --shadow-lg: 0 28px 64px -16px rgb(88 62 32 / 26%);
+  --transition: 180ms cubic-bezier(0.2, 0.7, 0.3, 1);
 
   /* 布局 */
-  --layout-sidebar: 232px;
-  --layout-max: 1120px;
+  --layout-sidebar: 248px;
+  --layout-max: 1160px;
   --layout-tabbar: 64px;
 
   --z-tabbar: 30;
@@ -81,15 +93,17 @@
   --z-toast: 80;
 
   /* 时效三级色：由 data-level 属性驱动，全站统一 */
-  --level-fresh: var(--color-primary);
+  --color-fresh: #5b8c5a;
+  --color-fresh-soft: #e8efe1;
+  --level-fresh: var(--color-fresh);
   --level-soon: var(--color-warn);
   --level-urgent: var(--color-danger);
-  --level-expired: #8a8a82;
+  --level-expired: #9c9081;
 }
 
 [data-level='fresh'] {
   --level-color: var(--level-fresh);
-  --level-soft: var(--color-primary-soft);
+  --level-soft: var(--color-fresh-soft);
 }
 
 [data-level='soon'] {
@@ -104,5 +118,5 @@
 
 [data-level='expired'] {
   --level-color: var(--level-expired);
-  --level-soft: #f0efea;
+  --level-soft: #efe7d9;
 }

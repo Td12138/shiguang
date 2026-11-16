@@ -6,62 +6,67 @@
 
 .chart {
   width: 100%;
-  max-width: 200px;
+  max-width: 188px;
   height: auto;
+  overflow: visible;
 }
 
 .track {
   fill: none;
-  stroke: #eeece4;
+  stroke: #e3dac9;
 }
 
 .saved {
   fill: none;
-  stroke: var(--color-primary);
+  stroke: var(--color-fresh);
   stroke-linecap: round;
 }
 
 .thrown {
   fill: none;
-  stroke: var(--color-danger);
+  stroke: #d37a60;
   stroke-linecap: round;
 }
 
 .value {
-  font-size: 30px;
-  font-weight: var(--fw-bold);
-  fill: var(--color-text);
+  fill: var(--color-teal);
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: var(--fw-heavy);
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
 }
 
 .caption {
+  fill: var(--color-text-muted);
   font-size: 12px;
-  fill: var(--color-text-faint);
+  letter-spacing: 0.08em;
 }
 
 .legend {
   display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
+  gap: var(--space-3);
   justify-content: center;
-  font-size: var(--fs-1);
+  margin: 0;
+  padding: 0;
   color: var(--color-text-muted);
+  font-size: var(--fs-1);
+  list-style: none;
 }
 
 .legend li {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-variant-numeric: tabular-nums;
 }
 
 .dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--color-primary);
+  background: var(--color-fresh);
 }
 
 .legend li[data-tone='bad'] .dot {
-  background: var(--color-danger);
+  background: #d37a60;
 }

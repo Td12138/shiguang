@@ -91,7 +91,7 @@ python -m pytest -q                # 151 项（110 业务 + 31 交付前审查 +
 
 ```powershell
 cd apps/server
-python scripts/probe_vlm.py ..\..\samples\fridge-1.jpg
+python scripts/probe_vlm.py ..\..\samples\fridge-pd\fridge-pd-1.jpg
 ```
 
 > `samples/` 为自摄演示素材，**不入库**（`.gitignore` 已排除）。新 clone 后该目录为空，`probe_vlm.py` 会提示先放照片；请使用自己拍摄的冰箱照片，不要使用含个人信息或他人隐私的图片。

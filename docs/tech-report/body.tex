@@ -36,7 +36,7 @@ stdio \\
 规模 & 22 个接口操作（20 条路径，含 2 个 SSE 流式）；12 实体表 + 1 张
 FTS5 表；食材 69 / 菜谱 30 / 技巧 20 段 / 别名 49；前端 6 页 + 21
 个基础组件；后端 151 项测试 \\
-结果 & 真实 \passthrough{\lstinline!glm-4v-flash!}：4 项 / 4.98 s。mock
+结果 & 真实 \passthrough{\lstinline!glm-4v-flash!}：6 项 / 7.2 s（2026-11-17 复测）。mock
 复跑：计划 80--130 ms（6 餐、用掉 5 项、临期 2 项）、改计划 180--300
 ms（4 处）、对账 4 不见/3 新增/1 待确认、30 天浪费率 16.3\%、首屏 67.32
 KB gzip \\
@@ -665,10 +665,12 @@ SQLite；种子指向临时空路径；\passthrough{\lstinline!FakeProvider!}
 注入，不打真实模型。
 
 真实模型（\passthrough{\lstinline!zhipu!}/\passthrough{\lstinline!glm-4v-flash!}，\passthrough{\lstinline!CHANGELOG.md!}
-2026-11-15）：冰箱实景一张返回 \textbf{4 项 / 4.98 s}；同批暴露 ①数量
-null ②置信度虚高 1.0 ③三种返回姿势。复测
-\passthrough{\lstinline!python scripts/probe\_vlm.py ../../samples/fridge-1.jpg!}（打印条数/耗时/置信度，不打印密钥）；素材
-\passthrough{\lstinline!samples/!} 7 张自摄照片。其余耗时均为 mock
+2026-11-17 用任务 Key 复测）：\passthrough{\lstinline!samples/fridge-pd/fridge-pd-1.jpg!}
+返回 \textbf{6 项 / 7.2 s}；同批暴露 ①部分项数量
+null ②置信度虚高 1.0 ③三种返回姿势。另一张
+\passthrough{\lstinline!samples/fridge-1.jpg!} 实为「猫扒冰箱门」照片，真实模型会回答「没有食材」。复测
+\passthrough{\lstinline!python scripts/probe\_vlm.py ../../samples/fridge-pd/fridge-pd-1.jpg!}（打印条数/耗时/置信度，不打印密钥）；素材
+\passthrough{\lstinline!samples/!} 8 张自摄照片（4 张真实冰箱内景）。其余耗时均为 mock
 回放（零网络、确定性），不能当模型延迟指标。
 
 mock 复跑（每条按各自初始状态单独执行：计划/改计划用同一份
@@ -725,8 +727,8 @@ mock 下 \passthrough{\lstinline!cook/sequence!}
 恒走规则版、\passthrough{\lstinline!plan!} 的 compose
 也常降级，页面会显示「已降级」------这是诚实降级，录屏保留、不要剪掉。
 
-端到端（人工验收）：上传 \passthrough{\lstinline!samples/fridge-1.jpg!}
-得 8 条（1 条 0.55 标黄、1 条库外），取消 1
+端到端（人工验收）：上传 \passthrough{\lstinline!samples/fridge-pd/fridge-pd-1.jpg!}
+得 8 条（mock 回放 fixture；1 条 0.55 标黄、1 条库外），取消 1
 条后确认，入库数=勾选数；首页按 \passthrough{\lstinline!days\_left!}
 升序、\textbf{过期在最前}、改到期日颜色变、刷新不丢；对账 4
 项标「扔掉」→ \passthrough{\lstinline!discarded=4!}、waste\_log

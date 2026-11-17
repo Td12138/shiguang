@@ -37,7 +37,7 @@
 #    然后 latexmk 出 PDF；数学符号 ≤ ≥ ≈ 由脚本转 \ensuremath 宏，别手工改 body.tex
 pandoc ..\04-技术方案.md -o body.tex --listings --shift-heading-level-by=-1
 latexmk -g -xelatex -outdir=..\..\..\..\outputs\chuanzhi-aiweb\texbuild shiguang-tech-report.tex
-# 2) 校验：16 页、A4、无 Missing character、目录无重号；PDF 拷到 outputs/chuanzhi-aiweb/食光-技术文档.pdf
+# 2) 校验：15 页、A4、无 Missing character、目录无重号；PDF 拷到 outputs/chuanzhi-aiweb/食光-技术文档.pdf
 ```
 
 > 用 `--shift-heading-level-by=-1` 是因为 `04` 的 `##` 对应 PDF 的 `\section`、`###` 对应 `\subsection`；正文手写的「4.1」等编号会在生成前剥掉，交给 LaTeX 计数器（旧版曾出现「5.1 5.1」）。

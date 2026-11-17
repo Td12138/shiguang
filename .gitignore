@@ -12,6 +12,10 @@ build/
 .env
 .env.*
 !.env.example
+# 提交信息 / API Token 填写位：只放本地或网盘，绝不入 Git
+提交信息-待填写.md
+API-TOKEN*
+API-接入信息.md
 
 # 测试/构建缓存
 .pytest_cache/

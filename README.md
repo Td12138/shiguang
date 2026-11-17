@@ -61,7 +61,8 @@ cd apps/server
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-Copy-Item .env.example .env      # 按需填 SHIGUANG_LLM_PROVIDER / SHIGUANG_LLM_API_KEY
+# 需要逐字节复现生产环境时改用：pip install -r requirements.lock
+Copy-Item .env.example .env      # 按需填 SHIGUANG_LLM_PROVIDER / SHIGUANG_LLM_API_KEY（占位值，不是真实 key）
 python -m uvicorn app.main:app --port 8720
 
 # 前端（从项目根另开一个终端）

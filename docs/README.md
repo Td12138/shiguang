@@ -33,9 +33,15 @@
 | `tech-report/body.tex` | 正文，由 `04-技术方案.md` 经 pandoc 生成（改 md 后需重新生成） |
 
 ```powershell
-# 重新生成 PDF（在 docs/tech-report 下）
+# 1) 技术方案 md → 正文 tex（在 docs/tech-report 下；去掉 H1 与手写章节号，编号交给 LaTeX）
+#    然后 latexmk 出 PDF；数学符号 ≤ ≥ ≈ 由脚本转 \ensuremath 宏，别手工改 body.tex
+pandoc ..\04-技术方案.md -o body.tex --listings --shift-heading-level-by=-1
 latexmk -g -xelatex -outdir=..\..\..\..\outputs\chuanzhi-aiweb\texbuild shiguang-tech-report.tex
+# 2) 校验：16 页、A4、无 Missing character、目录无重号；PDF 拷到 outputs/chuanzhi-aiweb/食光-技术文档.pdf
 ```
+
+> 用 `--shift-heading-level-by=-1` 是因为 `04` 的 `##` 对应 PDF 的 `\section`、`###` 对应 `\subsection`；正文手写的「4.1」等编号会在生成前剥掉，交给 LaTeX 计数器（旧版曾出现「5.1 5.1」）。
+> `≤ ≥ ≈` 必须在生成后转 `\ensuremath`（Latin 字体缺字形），行内代码里的 `∈ ≤` 已改成 ASCII 写法，避免 monospace 掉字。
 
 ## 维护规则
 

@@ -11,6 +11,10 @@
 \usepackage[hidelinks]{hyperref}
 \usepackage{amsmath}
 \usepackage{listings}
+\usepackage{calc}
+
+% 圈号在 Latin 字体里缺字形，交给中文字体排（否则 PDF 掉字）
+\xeCJKDeclareCharClass{CJK}{"2460 -> "2473}
 
 % PDF 元信息（评审在阅读器里能看到标题/主题）
 \hypersetup{
@@ -20,9 +24,10 @@
   pdfcreator={XeLaTeX}
 }
 
-\definecolor{primary}{HTML}{1F6F54}
-\definecolor{lightgray}{HTML}{F2F4F2}
-\definecolor{tblhead}{HTML}{EEF3EF}
+\definecolor{primary}{HTML}{22423C}
+\definecolor{accent}{HTML}{E4572E}
+\definecolor{lightgray}{HTML}{F4EBE0}
+\definecolor{tblhead}{HTML}{EAF0EA}
 
 \ctexset{
   section = {format = \Large\bfseries\color{primary}, beforeskip = 14pt, afterskip = 8pt},
@@ -57,7 +62,7 @@
 \vspace*{2.2cm}
 {\Huge\bfseries 食光（剩食管家）\par}
 \vspace{0.6cm}
-{\Large\color{primary} 拍一张冰箱照片，管住快坏掉的食材\par}
+{\Large\color{accent} 拍一张冰箱照片，管住快坏掉的食材\par}
 \vspace{2.2cm}
 {\large
 \renewcommand{\arraystretch}{1.6}
@@ -66,7 +71,7 @@
 赛事 & 2026 第九届传智杯全国大学生数智创新与 AI 应用大赛 · AI WEB 网页开发挑战赛（省赛作品） \\
 代码仓库 & \url{https://github.com/Td12138/shiguang} \\
 在线 Demo & \url{http://47.100.224.209:8720}（Basic 认证，演示用） \\
-文档版本 & v1.0 · 2026-11-15 \\
+文档版本 & v1.1 · 2026-11-17 \\
 技术栈 & FastAPI + SQLite + React 18 + TypeScript + Vite \\
 \bottomrule
 \end{tabularx}\par}

@@ -47,8 +47,10 @@ def test_mock_report_uses_current_context_numbers(fixed_context):
     text = "".join(event["text"] for event in events if event["type"] == "delta")
 
     assert text == report_domain._template_text(CONTEXT)
-    for expected in ("16%", "1650", "8470", "48.05", "351", "99.5"):
+    # 数字来自 context，且按展示口径格式化（kg 一位小数 / 金额两位 / 区间说人话）
+    for expected in ("16%", "1.6 kg", "8.5 kg", "48.05", "351", "99.50", "近 30 天"):
         assert expected in text
+    assert "30d" not in text
     for stale in HARDCODED:
         assert stale not in text
 

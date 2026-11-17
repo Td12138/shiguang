@@ -23,6 +23,9 @@ TIP_QUERY_LIMIT = 2
 TEMPLATE_CHUNK_SIZE = 40
 DISCLAIMER = "碳当量为估算，基于公开因子表。"
 MOCK_PROVIDER_NAME = "mock"
+# 区间代码 → 人话（周报正文不该出现 "30d" 这种内部口径）
+RANGE_LABELS = {"7d": "近 7 天", "30d": "近 30 天", "all": "全部记录"}
+GRAMS_PER_KG = 1000
 
 SYSTEM_PROMPT = (
     "阶段：report\n你是「食光」的剩食管家，用中文写一段轻松的周报，"
@@ -32,6 +35,22 @@ SYSTEM_PROMPT = (
 
 def _pct(value: float) -> str:
     return f"{round(float(value) * 100)}%"
+
+
+def _range_label(value: str) -> str:
+    return RANGE_LABELS.get(str(value), str(value))
+
+
+def _grams(value: float) -> str:
+    """与前端 formatGrams 同口径：≥1 kg 用 kg 一位小数，否则整数克。"""
+    grams = float(value)
+    if grams >= GRAMS_PER_KG:
+        return f"{grams / GRAMS_PER_KG:.1f} kg"
+    return f"{round(grams)} 克"
+
+
+def _money(value: float) -> str:
+    return f"{float(value):.2f}"
 
 
 def _build_context() -> dict:
@@ -54,11 +73,11 @@ def _build_context() -> dict:
         f"[{i}] {citation_utils.label(item)}" for i, item in enumerate(citations, start=1)
     )
     top_lines = (
-        "\n".join(f"- {item['name']}：{item['grams']} 克" for item in top) or "- 本周没有丢弃记录"
+        "\n".join(f"- {item['name']}：{_grams(item['grams'])}" for item in top) or "- 本周没有丢弃记录"
     )
     user = (
-        f"统计区间 {summary['range']}：浪费率 {_pct(summary['waste_rate'])}，"
-        f"丢掉 {summary['thrown_grams']} 克，吃掉 {summary['saved_grams']} 克，"
+        f"统计区间 {_range_label(summary['range'])}：浪费率 {_pct(summary['waste_rate'])}，"
+        f"丢掉 {_grams(summary['thrown_grams'])}，吃掉 {_grams(summary['saved_grams'])}，"
         f"少排 {summary['carbon_saved_kg']} kg 碳，约等于少开 "
         f"{summary['equivalents']['car_km']} 公里车。\n"
         f"丢弃最多的食材：\n{top_lines}\n\n引用清单：\n{citation_lines}\n\n"
@@ -80,11 +99,11 @@ def _template_text(context: dict) -> str:
     equivalents = summary["equivalents"]
     top = context["top"]
     lines = [
-        f"这 {summary['range']} 的冰箱成绩单：浪费率 {_pct(summary['waste_rate'])}，"
-        f"吃掉 {summary['saved_grams']} 克，扔掉 {summary['thrown_grams']} 克。",
+        f"{_range_label(summary['range'])}的冰箱成绩单：浪费率 {_pct(summary['waste_rate'])}，"
+        f"吃掉 {_grams(summary['saved_grams'])}，扔掉 {_grams(summary['thrown_grams'])}。",
         f"少排碳 {summary['carbon_saved_kg']} kg，约等于少开 {equivalents['car_km']} 公里车，"
         f"或 {equivalents['trees_days']} 棵树一天的吸收量。",
-        f"省下约 {summary['money_saved']} 元。",
+        f"省下约 {_money(summary['money_saved'])} 元。",
     ]
     if top:
         lines.append(

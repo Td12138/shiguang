@@ -17,8 +17,8 @@
 }
 
 .stripe {
-  flex: 0 0 6px;
-  background: var(--level-color, var(--color-primary));
+  flex: 0 0 5px;
+  background: var(--level-color, var(--color-fresh));
 }
 
 .inner {
@@ -69,10 +69,11 @@
   display: flex;
   align-items: baseline;
   gap: 4px;
+  font-family: var(--font-display);
   font-size: var(--fs-6);
-  font-weight: var(--fw-bold);
+  font-weight: var(--fw-heavy);
   line-height: 1;
-  color: var(--level-color, var(--color-primary));
+  color: var(--level-color, var(--color-fresh));
   font-variant-numeric: tabular-nums;
 }
 

@@ -14,8 +14,8 @@
 }
 
 .item[data-tone='good'] {
-  border-color: #cfe0d7;
-  background: var(--color-primary-soft);
+  border-color: #d3dfc6;
+  background: var(--color-fresh-soft);
 }
 
 .item[data-tone='warn'] {

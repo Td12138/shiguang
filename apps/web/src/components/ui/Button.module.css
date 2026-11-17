@@ -36,11 +36,14 @@
 
 .button[data-variant='primary'] {
   background: var(--color-primary);
-  color: #fff;
+  color: #fff6ea;
+  box-shadow: 0 8px 18px -8px rgb(200 67 31 / 65%);
 }
 
 .button[data-variant='primary']:hover:not(:disabled) {
   background: var(--color-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 22px -8px rgb(200 67 31 / 60%);
 }
 
 .button[data-variant='secondary'] {

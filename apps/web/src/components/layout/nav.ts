@@ -59,7 +59,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: '周报',
     icon: 'report',
     title: '本周周报',
-    subtitle: '一周一页，流式生成',
+    subtitle: '一周一页，回望餐桌',
   },
 ];
 

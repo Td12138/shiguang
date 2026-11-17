@@ -59,11 +59,11 @@ export function WasteRing({ wasteRate, savedGrams, thrownGrams }: WasteRingProps
       <ul className={styles.legend}>
         <li data-tone="good">
           <span className={styles.dot} aria-hidden="true" />
-          吃掉 {Math.round(savedGrams)} g
+          吃掉
         </li>
         <li data-tone="bad">
           <span className={styles.dot} aria-hidden="true" />
-          扔掉 {Math.round(thrownGrams)} g
+          扔掉
         </li>
       </ul>
     </div>

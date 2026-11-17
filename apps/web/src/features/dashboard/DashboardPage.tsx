@@ -115,6 +115,21 @@ export default function DashboardPage() {
   return (
     <div className="page-stack">
       {demo ? <DemoBanner onRetry={reload} /> : null}
+      <section className={styles.hero} aria-label="今日厨房">
+        <div className={styles.heroText}>
+          <p className={styles.heroKicker}>食光 · 今日厨房</p>
+          <h2 className={styles.heroTitle}>把快过期的，先做成好吃的</h2>
+          <p className={styles.heroDesc}>
+            冰箱里 {inventory.length} 样食材，{expiring.length} 样建议这几天先吃。
+          </p>
+          <div className={styles.heroActions}>
+            <Button onClick={() => navigate('/cook')}>看看今天吃啥</Button>
+            <Button variant="secondary" onClick={() => navigate('/capture')}>
+              拍照入库
+            </Button>
+          </div>
+        </div>
+      </section>
       <StaleNotice count={staleCount} />
       <UrgentStrip items={expiring} />
       <SuggestionPanel suggestion={suggestion} loading={loading} onRefresh={reload} />

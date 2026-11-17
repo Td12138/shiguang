@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse, Response
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
 from app import config
+from app.core import webdist
 
 LOGGER = logging.getLogger(__name__)
 
@@ -90,7 +91,10 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             self.hits.pop(ip, None)
 
     def _rate_limit_exempt(self, path: str) -> bool:
-        return path in RATE_LIMIT_EXEMPT_PATHS or path.startswith(STATIC_EXEMPT_PREFIXES)
+        if path in RATE_LIMIT_EXEMPT_PATHS or path.startswith(STATIC_EXEMPT_PREFIXES):
+            return True
+        # public 根级资源（logo/hero/favicon）也是静态文件，一次首页加载不该吃掉 API 额度
+        return webdist.static_file(path) is not None
 
     def _check_auth(self, request: Request) -> bool:
         assert self.auth is not None

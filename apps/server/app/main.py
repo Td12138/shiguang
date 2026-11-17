@@ -24,6 +24,7 @@ from app import config
 from app.api import health
 from app.core.errors import AppError
 from app.core.security import SecurityMiddleware
+from app.core import webdist
 
 LOGGER = logging.getLogger(__name__)
 
@@ -117,7 +118,12 @@ def _validation_handler(_request: Request, exc: Exception) -> JSONResponse:
 
 
 class SPAStaticFiles(StaticFiles):
-    """仅用于 /assets 等静态目录（SPA 路由回退由 catch-all 路由负责）。"""
+    """`/assets` 用：文件名带内容 hash，直接长缓存（回滚换目录即换 hash，不会读到旧文件）。"""
+
+    def file_response(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = webdist.ASSET_CACHE_CONTROL
+        return response
 
 
 def create_app() -> FastAPI:
@@ -155,14 +161,19 @@ def create_app() -> FastAPI:
     if (config.WEB_DIST_DIR / "index.html").is_file():
         assets = config.WEB_DIST_DIR / "assets"
         if assets.is_dir():
-            app.mount("/assets", StaticFiles(directory=str(assets)), name="assets")
+            app.mount("/assets", SPAStaticFiles(directory=str(assets)), name="assets")
 
         @app.get("/{full_path:path}", include_in_schema=False)
         async def spa(full_path: str) -> FileResponse:
-            """前端路由回退：非 /api 路径一律返回 index.html。"""
+            """dist 里真实存在的文件直接回文件（public 资源），其余回 index.html 交给前端路由。"""
             if full_path.startswith("api/"):
                 raise StarletteHTTPException(404, "接口不存在")
-            return FileResponse(config.WEB_DIST_DIR / "index.html")
+            target = webdist.static_file(full_path)
+            response = FileResponse(target if target is not None else config.WEB_DIST_DIR / "index.html")
+            response.headers["Cache-Control"] = (
+                webdist.cache_control(full_path) if target is not None else webdist.INDEX_CACHE_CONTROL
+            )
+            return response
 
         LOGGER.info("已挂载前端构建产物：%s", config.WEB_DIST_DIR)
         return app

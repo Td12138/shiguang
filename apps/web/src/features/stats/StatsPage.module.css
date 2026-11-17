@@ -76,7 +76,7 @@
 }
 
 .savingsValue > span {
-  color: var(--color-primary);
+  color: var(--color-primary-text);
   font-size: var(--fs-5);
   font-weight: var(--fw-bold);
   letter-spacing: 0;
@@ -104,11 +104,11 @@
 }
 
 .equivalentsCard h2 {
-  color: #fff9ef;
+  color: var(--color-on-teal);
 }
 
 .equivalentsCard header p {
-  color: #b9c8bd;
+  color: var(--color-on-teal-muted);
 }
 
 .equivalents {
@@ -121,7 +121,7 @@
   grid-template-columns: 48px minmax(0, 1fr);
   column-gap: var(--space-2);
   padding: 2px var(--space-3);
-  border-left: 1px solid rgb(255 249 239 / 16%);
+  border-left: 1px solid var(--color-on-teal-line);
 }
 
 .equivalent:first-child {
@@ -140,17 +140,17 @@
   height: 48px;
   place-items: center;
   border-radius: 50%;
-  background: #f4e4ca;
+  background: var(--color-accent-soft);
   color: var(--color-teal);
 }
 
 .equivalent:nth-child(2) .eqIcon {
-  background: #dce8d5;
-  color: #3f7046;
+  background: var(--color-fresh-soft);
+  color: var(--color-fresh);
 }
 
 .equivalent:nth-child(3) .eqIcon {
-  background: #f5d6c4;
+  background: var(--color-primary-soft);
   color: var(--color-primary-deep);
 }
 
@@ -166,7 +166,7 @@
 }
 
 .eqValue {
-  color: #fff9ef;
+  color: var(--color-on-teal);
   font-family: var(--font-display);
   font-size: var(--fs-5);
   font-weight: var(--fw-heavy);
@@ -177,13 +177,13 @@
 
 .eqLabel {
   margin-top: 2px;
-  color: #f4ecdf;
+  color: var(--color-on-teal);
   font-size: var(--fs-2);
 }
 
 .eqHint {
   margin-top: 4px;
-  color: #aebfb3;
+  color: var(--color-on-teal-faint);
   font-size: var(--fs-1);
   line-height: 1.5;
 }
@@ -198,24 +198,25 @@
     gap: var(--space-3);
   }
 
+  /* 768–1000px：三列会把标签挤成一字一行，直接改竖排清单 */
   .equivalents {
+    grid-template-columns: 1fr;
     gap: var(--space-3);
   }
 
-  .equivalent {
-    grid-template-columns: 40px minmax(0, 1fr);
-    column-gap: var(--space-1);
-    padding-inline: var(--space-2);
+  .equivalent,
+  .equivalent:first-child,
+  .equivalent:last-child {
+    grid-template-columns: 48px minmax(0, 1fr);
+    column-gap: var(--space-2);
+    padding: var(--space-3) 0 0;
+    border-top: 1px solid var(--color-on-teal-line);
+    border-left: 0;
   }
 
-  .eqIcon {
-    width: 40px;
-    height: 40px;
-  }
-
-  .eqIcon svg {
-    width: 26px;
-    height: 26px;
+  .equivalent:first-child {
+    padding-top: 0;
+    border-top: 0;
   }
 }
 
@@ -231,31 +232,6 @@
 
   .savings {
     padding-top: 0;
-  }
-
-  .equivalents {
-    grid-template-columns: 1fr;
-    gap: var(--space-3);
-  }
-
-  .equivalent,
-  .equivalent:first-child,
-  .equivalent:last-child {
-    grid-template-columns: 48px minmax(0, 1fr);
-    column-gap: var(--space-2);
-    padding: var(--space-3) 0 0;
-    border-top: 1px solid rgb(255 249 239 / 16%);
-    border-left: 0;
-  }
-
-  .equivalent:first-child {
-    padding-top: 0;
-    border-top: 0;
-  }
-
-  .eqIcon {
-    width: 48px;
-    height: 48px;
   }
 
   .controls {

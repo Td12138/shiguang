@@ -8,7 +8,7 @@ export function Sidebar() {
   return (
     <aside className={styles.sidebar} aria-label="主导航">
       <Link to="/" className={styles.brand}>
-        <img className={styles.logo} src="/logo.svg" alt="" width={40} height={40} />
+        <img className={styles.logo} src="/logo.svg" alt="" width={42} height={42} />
         <span className={styles.brandText}>
           <strong className={styles.brandName}>食光</strong>
           <em className={styles.brandSub}>剩食管家</em>

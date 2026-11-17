@@ -12,7 +12,7 @@
 }
 
 .gridLine {
-  stroke: #eee5d6;
+  stroke: var(--color-border);
   stroke-dasharray: 3 6;
   stroke-width: 1;
 }
@@ -23,11 +23,16 @@
 }
 
 .saved {
-  fill: var(--color-fresh);
+  fill: var(--color-eaten);
 }
 
 .thrown {
-  fill: #d37a60;
+  fill: var(--color-thrown);
+}
+
+.thrownStripe {
+  stroke: var(--color-surface);
+  opacity: 0.55;
 }
 
 .saved,
@@ -65,11 +70,15 @@
   width: 10px;
   height: 10px;
   border-radius: 3px;
-  background: var(--color-fresh);
+  background: var(--color-eaten);
 }
 
 .legend [data-tone='bad'] i {
-  background: #d37a60;
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-thrown) 0 2px,
+    var(--color-surface) 2px 4px
+  );
 }
 
 .scale {
@@ -78,10 +87,6 @@
 }
 
 @media (max-width: 767px) {
-  .chart {
-    min-height: 180px;
-  }
-
   .scale {
     width: 100%;
     margin-left: 0;

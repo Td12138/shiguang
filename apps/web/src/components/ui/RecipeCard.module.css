@@ -17,7 +17,7 @@
 }
 
 .card[data-highlight] {
-  border-color: #f0d4c2;
+  border-color: var(--color-primary-border);
   background:
     radial-gradient(360px 160px at 100% 0%, rgb(228 87 46 / 8%), transparent 70%),
     var(--color-surface);
@@ -38,7 +38,7 @@
   flex-shrink: 0;
   border-radius: 50%;
   background: var(--color-primary-soft);
-  color: var(--color-primary);
+  color: var(--color-primary-text);
   font-size: var(--fs-1);
   font-weight: var(--fw-bold);
 }

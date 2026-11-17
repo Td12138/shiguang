@@ -7,7 +7,7 @@
   min-height: 232px;
   padding: var(--space-4) var(--space-5);
   overflow: hidden;
-  border: 1px solid #d3dfc6;
+  border: 1px solid var(--color-fresh-border);
   border-radius: var(--radius-xl);
   background:
     radial-gradient(circle at 88% 10%, rgb(255 253 248 / 72%), transparent 36%),
@@ -17,6 +17,7 @@
 .heroCopy {
   position: relative;
   z-index: 1;
+  min-width: 0;
 }
 
 .kicker,
@@ -258,6 +259,19 @@
   font-size: var(--fs-5);
   font-weight: var(--fw-heavy);
   font-variant-numeric: tabular-nums;
+}
+
+/* 768–1024px：插画列收窄，避免文案列被按钮最小宽度顶破 */
+@media (max-width: 1024px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr) 140px;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .heroArt svg {
+    max-width: 140px;
+  }
 }
 
 @media (max-width: 767px) {

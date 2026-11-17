@@ -32,7 +32,7 @@
 
 .item[data-active] {
   background: var(--color-surface);
-  color: var(--color-primary);
+  color: var(--color-primary-text);
   box-shadow: var(--shadow-sm);
 }
 

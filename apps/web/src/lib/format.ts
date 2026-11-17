@@ -66,10 +66,16 @@ export function nowHhMm(date = new Date()): string {
   return `${`${date.getHours()}`.padStart(2, '0')}:${`${date.getMinutes()}`.padStart(2, '0')}`;
 }
 
-/** 金额：null / undefined 一律显示「—」，绝不当 0 展示 */
-export function formatMoney(value: number | null | undefined): string {
+/** 金额数字部分：固定两位小数；null / undefined / NaN 一律「—」，绝不当 0 展示 */
+export function formatAmount(value: number | null | undefined): string {
   if (value === null || value === undefined || Number.isNaN(value)) return '—';
-  return `¥${value.toFixed(2)}`;
+  return value.toFixed(2);
+}
+
+/** 金额：带 ¥ 符号；符号要单独排版时用 formatAmount */
+export function formatMoney(value: number | null | undefined): string {
+  const amount = formatAmount(value);
+  return amount === '—' ? '—' : `¥${amount}`;
 }
 
 /** ISO 时间 → 「2026-11-15 18:20」；解析失败原样返回 */

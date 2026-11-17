@@ -10,7 +10,7 @@
   background:
     radial-gradient(320px 240px at 0% 0%, rgb(228 87 46 / 14%), transparent 70%),
     var(--color-teal);
-  color: #f6efe2;
+  color: var(--color-on-teal);
 }
 
 .brand {
@@ -42,14 +42,14 @@
 .brandName {
   font-family: var(--font-display);
   font-weight: var(--fw-heavy);
-  font-size: 23px;
-  color: #fbf5e9;
+  font-size: var(--fs-5);
+  color: var(--color-on-teal);
   letter-spacing: 0.1em;
 }
 
 .brandSub {
   font-size: var(--fs-1);
-  color: rgb(246 239 226 / 55%);
+  color: var(--color-on-teal-faint);
   font-style: normal;
   letter-spacing: 0.06em;
 }
@@ -65,8 +65,7 @@
   gap: 12px;
   padding: 11px 14px;
   border-radius: var(--radius-md);
-  color: rgb(246 239 226 / 78%);
-  --icon-accent: #eda66a;
+  color: var(--color-on-teal-muted);
   font-size: var(--fs-2);
   transition:
     background var(--transition),
@@ -76,15 +75,15 @@
 
 .link:hover {
   background: rgb(250 244 233 / 9%);
-  color: #fbf5e9;
+  color: var(--color-on-teal);
   text-decoration: none;
   transform: translateX(2px);
 }
 
 .link.active {
-  background: #faf4e9;
+  background: var(--color-bg);
   color: var(--color-teal);
-  --icon-accent: #e4572e;
+  --icon-accent: var(--color-primary);
   font-weight: var(--fw-bold);
   box-shadow: 0 8px 20px -10px rgb(0 0 0 / 55%);
 }
@@ -97,7 +96,7 @@
   margin-top: auto;
   padding: var(--space-2) 14px 0;
   border-top: 1px solid rgb(246 239 226 / 14%);
-  color: rgb(246 239 226 / 50%);
+  color: var(--color-on-teal-faint);
   font-size: var(--fs-1);
   line-height: 1.7;
 }

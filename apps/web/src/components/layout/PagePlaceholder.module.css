@@ -15,7 +15,7 @@
   padding: 3px 10px;
   border-radius: var(--radius-pill);
   background: var(--color-primary-soft);
-  color: var(--color-primary);
+  color: var(--color-primary-text);
   font-size: var(--fs-1);
   font-weight: var(--fw-bold);
 }
@@ -53,7 +53,7 @@
   height: 20px;
   border-radius: 50%;
   background: var(--color-primary-soft);
-  color: var(--color-primary);
+  color: var(--color-primary-text);
   font-size: 11px;
   font-weight: var(--fw-bold);
 }

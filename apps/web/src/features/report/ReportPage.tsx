@@ -78,7 +78,7 @@ export default function ReportPage() {
       </section>
 
       <Card className={styles.paper}>
-        <article className={styles.article}>
+        <article>
           <header className={styles.articleHeader}>
             <div>
               <span className={styles.articleKicker}>本周记录</span>

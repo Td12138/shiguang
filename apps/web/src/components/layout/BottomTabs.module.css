@@ -43,7 +43,7 @@
   }
 
   .tab.active {
-    color: var(--color-primary);
+    color: var(--color-primary-text);
     font-weight: var(--fw-bold);
   }
 

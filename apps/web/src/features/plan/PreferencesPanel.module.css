@@ -67,7 +67,7 @@
   padding: 1px 7px;
   border-radius: var(--radius-pill);
   background: var(--color-primary-soft);
-  color: var(--color-primary);
+  color: var(--color-primary-text);
   font-size: 10px;
 }
 

@@ -14,7 +14,7 @@
 }
 
 .item[data-tone='good'] {
-  border-color: #d3dfc6;
+  border-color: var(--color-fresh-border);
   background: var(--color-fresh-soft);
 }
 

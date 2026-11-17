@@ -13,19 +13,26 @@
 
 .track {
   fill: none;
-  stroke: #e3dac9;
+  stroke: var(--color-hero-border);
 }
 
 .saved {
   fill: none;
-  stroke: var(--color-fresh);
+  stroke: var(--color-eaten);
   stroke-linecap: round;
 }
 
 .thrown {
   fill: none;
-  stroke: #d37a60;
+  stroke: var(--color-thrown);
   stroke-linecap: round;
+}
+
+/* 斜纹刻度：叠在「扔掉」弧上，灰度下也能分辨两段 */
+.thrownHatch {
+  fill: none;
+  stroke: var(--color-surface);
+  opacity: 0.55;
 }
 
 .value {
@@ -64,9 +71,13 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--color-fresh);
+  background: var(--color-eaten);
 }
 
 .legend li[data-tone='bad'] .dot {
-  background: #d37a60;
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-thrown) 0 2px,
+    var(--color-surface) 2px 4px
+  );
 }

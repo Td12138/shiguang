@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import type { StatsTrendPoint } from '@/lib/api';
 import { shortDate } from '@/lib/format';
 import styles from './TrendChart.module.css';
@@ -16,9 +17,11 @@ const INNER_H = HEIGHT - PAD_TOP - PAD_BOTTOM;
 const MAX_BAR_WIDTH = 18;
 const LABEL_EVERY = 5;
 const GRID_LINES = [0.25, 0.5, 0.75, 1];
+const HATCH_SIZE = 6;
 
-/** 手写 SVG 双色堆叠柱：绿色 = 吃掉，红色 = 扔掉，单位克 */
+/** 手写 SVG 双色堆叠柱：绿色 = 吃掉，斜纹红 = 扔掉，单位克 */
 export function TrendChart({ points }: TrendChartProps) {
+  const hatchId = `thrown-hatch-${useId().replace(/:/g, '')}`;
   const totals = points.map((point) => point.saved + point.thrown);
   const max = Math.max(1, ...totals);
   const step = points.length > 0 ? INNER_W / points.length : INNER_W;
@@ -34,6 +37,19 @@ export function TrendChart({ points }: TrendChartProps) {
         role="img"
         aria-label={`每日趋势：区间内吃掉 ${Math.round(savedTotal)} 克，扔掉 ${Math.round(thrownTotal)} 克`}
       >
+        <defs>
+          {/* 斜纹：灰度/色盲下「扔掉」也能和「吃掉」区分 */}
+          <pattern
+            id={hatchId}
+            width={HATCH_SIZE}
+            height={HATCH_SIZE}
+            patternUnits="userSpaceOnUse"
+            patternTransform="rotate(45)"
+          >
+            <rect width={HATCH_SIZE} height={HATCH_SIZE} className={styles.thrown} />
+            <line x1="0" y1="0" x2="0" y2={HATCH_SIZE} className={styles.thrownStripe} strokeWidth="2" />
+          </pattern>
+        </defs>
         {GRID_LINES.map((ratio) => {
           const y = PAD_TOP + INNER_H * (1 - ratio);
           return (
@@ -84,6 +100,7 @@ export function TrendChart({ points }: TrendChartProps) {
                   height={Math.max(1, thrownHeight)}
                   rx={4}
                   className={styles.thrown}
+                  style={{ fill: `url(#${hatchId})` }}
                 >
                   <title>{`${shortDate(point.date)} 扔掉 ${Math.round(point.thrown)} g`}</title>
                 </rect>

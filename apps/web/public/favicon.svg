@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- favicon 专用：深厨绿圆角底，浅色标签栏上也能看清（侧栏用透明底 logo.svg） -->
+  <rect width="48" height="48" rx="12" fill="#22423C"/>
+  <g transform="translate(4.8 4.8) scale(0.8)">
+    <g fill="none" stroke="#F08A4B" stroke-width="2.8" stroke-linecap="round">
+      <path d="M19 12.5c-2.8-2.9 2.8-4.7 0-7.6"/>
+      <path d="M28 12.5c-2.8-2.9 2.8-4.7 0-7.6"/>
+    </g>
+    <path d="M6 20h36a18 18 0 0 1-36 0z" fill="#FBF3E4"/>
+    <path d="M11.5 24.5h25" stroke="#22423C" stroke-opacity=".16" stroke-width="2" stroke-linecap="round"/>
+    <rect x="19.5" y="38.5" width="9" height="3.4" rx="1.7" fill="#FBF3E4"/>
+    <circle cx="38.5" cy="12.5" r="3" fill="#CDE3B8"/>
+  </g>
+</svg>

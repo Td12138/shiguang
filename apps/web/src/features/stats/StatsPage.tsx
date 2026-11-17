@@ -5,7 +5,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Notice } from '@/components/ui/Notice';
 import { Segmented } from '@/components/ui/Segmented';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { formatGrams, formatPercent } from '@/lib/format';
+import { formatAmount, formatGrams, formatPercent } from '@/lib/format';
 import { RANGE_OPTIONS, useStats } from './useStats';
 import { StatTile } from './StatTile';
 import { TrendChart } from './TrendChart';
@@ -76,7 +76,6 @@ export default function StatsPage() {
       ) : null}
 
       <Card
-        className={styles.summaryCard}
         title="这段时间的账本"
         subtitle="每一次吃完和丢弃，都有记录"
         actions={
@@ -130,7 +129,7 @@ export default function StatsPage() {
                 <span className={styles.savingsLabel}>这段时间，省下的食材钱</span>
                 <p className={styles.savingsValue}>
                   <span>¥</span>
-                  {data.money_saved}
+                  {formatAmount(data.money_saved)}
                 </p>
                 <span className={styles.savingsHint}>按已吃掉食材的均价折算</span>
               </div>

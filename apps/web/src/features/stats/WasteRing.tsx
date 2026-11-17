@@ -1,4 +1,4 @@
-import { formatPercent } from '@/lib/format';
+import { formatGrams, formatPercent } from '@/lib/format';
 import styles from './WasteRing.module.css';
 
 export interface WasteRingProps {
@@ -12,6 +12,18 @@ const SIZE = 168;
 const STROKE = 16;
 const RADIUS = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+const HATCH_DASH = 3;
+const HATCH_GAP = 7;
+
+/** 「扔掉」弧上的斜纹刻度：灰度/色盲下也能和「吃掉」区分（不只靠色相） */
+function hatchDash(arc: number): string {
+  const parts: number[] = [];
+  for (let used = 0; used < arc; used += HATCH_DASH + HATCH_GAP) {
+    parts.push(HATCH_DASH, HATCH_GAP);
+  }
+  parts.push(0, CIRCUMFERENCE);
+  return parts.join(' ');
+}
 
 /** 手写 SVG 环图：绿色 = 吃掉的比例，红色 = 扔掉的比例 */
 export function WasteRing({ wasteRate, savedGrams, thrownGrams }: WasteRingProps) {
@@ -48,6 +60,18 @@ export function WasteRing({ wasteRate, savedGrams, thrownGrams }: WasteRingProps
           strokeDashoffset={-savedArc}
           transform={`rotate(-90 ${center} ${center})`}
         />
+        {thrownArc > 0 ? (
+          <circle
+            cx={center}
+            cy={center}
+            r={RADIUS}
+            className={styles.thrownHatch}
+            strokeWidth={STROKE}
+            strokeDasharray={hatchDash(thrownArc)}
+            strokeDashoffset={-savedArc}
+            transform={`rotate(-90 ${center} ${center})`}
+          />
+        ) : null}
         <text x={center} y={center - 2} className={styles.value} textAnchor="middle">
           {formatPercent(safeRate, 1)}
         </text>
@@ -59,11 +83,11 @@ export function WasteRing({ wasteRate, savedGrams, thrownGrams }: WasteRingProps
       <ul className={styles.legend}>
         <li data-tone="good">
           <span className={styles.dot} aria-hidden="true" />
-          吃掉
+          吃掉 {formatGrams(savedGrams)}
         </li>
         <li data-tone="bad">
           <span className={styles.dot} aria-hidden="true" />
-          扔掉
+          扔掉 {formatGrams(thrownGrams)}
         </li>
       </ul>
     </div>

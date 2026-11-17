@@ -5,37 +5,54 @@
    ========================================================================== */
 
 :root {
-  /* 主色：柑橘橙（行动、强调） */
+  /* 主色：柑橘橙。填充用 primary，承载文字时用 primary-text / primary-strong（对比度 ≥4.5） */
   --color-primary: #e4572e;
   --color-primary-hover: #c8431f;
   --color-primary-soft: #fbe7dc;
   --color-primary-deep: #8f3716;
+  --color-primary-text: #b8431f;
+  --color-primary-strong: #c0431f;
+  --color-primary-strong-hover: #a63c1a;
 
-  /* 结构色：深厨绿（侧栏、品牌、对比强调） */
+  /* 结构色：深厨绿（侧栏、品牌、对比强调）；on-teal 是深底上的文字色 */
   --color-teal: #22423c;
-  --color-teal-soft: #e4ece5;
+  --color-on-teal: #f6efe2;
+  --color-on-teal-muted: #c7c9bd;
+  --color-on-teal-faint: #c1c4b8;
+  --color-on-teal-line: rgb(246 239 226 / 16%);
+  --icon-accent: #eda66a;
 
-  /* 背景：暖纸白，表面带一点奶白 */
+  /* 背景：暖纸白，表面带一点奶白；hero 是首页主视觉的暖底 */
   --color-bg: #faf4e9;
   --color-surface: #fffdf8;
   --color-surface-muted: #f4ebdc;
+  --color-hero-bg: #fdf3e3;
+  --color-hero-border: #f0e2cd;
+  --color-skeleton: #f0e7d7;
+  --color-primary-border: #f0d4c2;
 
   /* 辅色：熟黄（提示、点缀） */
   --color-accent: #b97b16;
   --color-accent-soft: #f8edce;
 
-  --color-danger: #c93a2e;
+  /* 语义色：都按「文字也要够读」定值（对各自 soft 底 ≥4.5:1） */
+  --color-danger: #b32e23;
   --color-danger-soft: #f9e4de;
 
-  --color-warn: #a8740a;
+  --color-warn: #8f6207;
   --color-warn-soft: #f8edce;
 
-  /* 墨色：暖黑而不是纯黑 */
+  /* 墨色：暖黑而不是纯黑；faint 也要够读（对三种底色均 ≥4.5:1） */
   --color-text: #2c2721;
   --color-text-muted: #6e6355;
-  --color-text-faint: #9c9081;
+  --color-text-faint: #75685a;
   --color-border: #eadfcc;
   --color-border-strong: #d8c9af;
+
+  /* 图表：吃掉 / 扔掉两色（另用斜纹区分，不只靠色相）；对卡片底 ≥3:1 */
+  --color-eaten: var(--color-fresh);
+  --color-thrown: #c25a3f;
+  --color-fresh-border: #d3dfc6;
 
   /* 8pt 间距刻度 */
   --space-1: 8px;
@@ -58,8 +75,8 @@
     -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
     'Microsoft YaHei', 'Source Han Sans SC', 'Noto Sans CJK SC', sans-serif;
   --font-display:
-    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont,
-    'Segoe UI', 'Source Han Sans SC', 'Noto Sans CJK SC', sans-serif;
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', 'Source Han Sans SC', 'Noto Sans CJK SC', sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo, Consolas, monospace;
 
   --fs-1: 12px;
@@ -92,13 +109,13 @@
   --z-modal: 60;
   --z-toast: 80;
 
-  /* 时效三级色：由 data-level 属性驱动，全站统一 */
-  --color-fresh: #5b8c5a;
+  /* 时效三级色：由 data-level 属性驱动，全站统一；文字场景一律 ≥4.5:1 */
+  --color-fresh: #457044;
   --color-fresh-soft: #e8efe1;
   --level-fresh: var(--color-fresh);
   --level-soon: var(--color-warn);
   --level-urgent: var(--color-danger);
-  --level-expired: #9c9081;
+  --level-expired: var(--color-text-faint);
 }
 
 [data-level='fresh'] {

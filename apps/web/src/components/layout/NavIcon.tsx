@@ -78,7 +78,7 @@ export function NavIcon({ name }: { name: NavIconName }) {
       width="21"
       height="21"
       fill="none"
-      stroke="currentColor"
+      stroke="none"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"

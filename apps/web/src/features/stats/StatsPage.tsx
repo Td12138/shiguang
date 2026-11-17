@@ -6,7 +6,7 @@ import { Notice } from '@/components/ui/Notice';
 import { Segmented } from '@/components/ui/Segmented';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { formatAmount, formatGrams, formatPercent } from '@/lib/format';
-import { RANGE_OPTIONS, useStats } from './useStats';
+import { RANGE_OPTIONS, rangeLabel, useStats } from './useStats';
 import { StatTile } from './StatTile';
 import { TrendChart } from './TrendChart';
 import { WasteRing } from './WasteRing';
@@ -200,7 +200,7 @@ export default function StatsPage() {
           <Card
             className={styles.trendCard}
             title="每日趋势"
-            subtitle={data.range ? `区间 ${data.range}：吃掉与扔掉按天对照` : '吃掉与扔掉按天对照'}
+            subtitle={data.range ? `区间 ${rangeLabel(data.range)}：吃掉与扔掉按天对照` : '吃掉与扔掉按天对照'}
           >
             {data.trend.length === 0 ? (
               <EmptyState tone="inline" title="区间内还没有按天的记录" description="记录几天之后，这里会出现柱状趋势。" />

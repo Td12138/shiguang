@@ -47,6 +47,17 @@
   color: var(--color-text-muted);
 }
 
+/* 768–1024px：侧栏还在，内容区窄，标题降一档避免孤字换行 */
+@media (max-width: 1024px) {
+  .bar {
+    padding: var(--space-2) var(--space-3) var(--space-1);
+  }
+
+  .title {
+    font-size: var(--fs-5);
+  }
+}
+
 @media (max-width: 767px) {
   .bar {
     padding: var(--space-2) var(--space-3) var(--space-1);

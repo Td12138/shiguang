@@ -9,6 +9,7 @@ from __future__ import annotations
 import inspect
 import json
 import logging
+from decimal import ROUND_HALF_UP, Decimal
 from typing import AsyncIterator
 
 from app.domain import stats
@@ -33,8 +34,19 @@ SYSTEM_PROMPT = (
 )
 
 
+def _round_half_up(value: float, digits: int) -> str:
+    """与 JS `toFixed` 完全同口径：对浮点的**精确二进制值**做 half-up。
+
+    不能用 Python 的 round / f-string（银行家舍入：1.25 → 1.2，JS 是 1.3），
+    也不能简单 `floor(x+0.5)`（1.65 的二进制值略小于 1.65，JS 给 1.6，floor 法会给 1.7）。
+    `Decimal(float)` 取的正是精确二进制值，因此两边逐位一致。
+    """
+    quantum = Decimal(1).scaleb(-digits)
+    return str(Decimal(float(value)).quantize(quantum, rounding=ROUND_HALF_UP))
+
+
 def _pct(value: float) -> str:
-    return f"{round(float(value) * 100)}%"
+    return f"{_round_half_up(float(value) * 100, 0)}%"
 
 
 def _range_label(value: str) -> str:
@@ -42,11 +54,11 @@ def _range_label(value: str) -> str:
 
 
 def _grams(value: float) -> str:
-    """与前端 formatGrams 同口径：≥1 kg 用 kg 一位小数，否则整数克。"""
+    """与前端 formatGrams 同口径：≥1 kg 用 kg 一位小数，否则整数 g。"""
     grams = float(value)
     if grams >= GRAMS_PER_KG:
-        return f"{grams / GRAMS_PER_KG:.1f} kg"
-    return f"{round(grams)} 克"
+        return f"{_round_half_up(grams / GRAMS_PER_KG, 1)} kg"
+    return f"{_round_half_up(grams, 0)} g"
 
 
 def _money(value: float) -> str:
@@ -66,7 +78,9 @@ def _build_context() -> dict:
     except Exception:
         logger.exception("周报检索技巧失败，忽略引用来源")
 
-    citations = [{"source": f"stats:{REPORT_RANGE}", "locator": "区间汇总"}]
+    citations = [
+        {"source": f"stats:{REPORT_RANGE}", "locator": f"{_range_label(REPORT_RANGE)}区间汇总"}
+    ]
     citations += citation_utils.collect(tip_chunks, TIP_QUERY_LIMIT)
 
     citation_lines = "\n".join(

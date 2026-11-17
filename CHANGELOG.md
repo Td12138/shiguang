@@ -21,8 +21,18 @@
 - **周报模板说人话**：`30d` → 「近 30 天」，克数 ≥1 kg 用 kg 一位小数（与前端 `formatGrams` 同口径），金额两位小数。
 
 ### 测试
-- 后端 **147 passed**（141 + 6 项静态托管回归），约 28 s；前端 `pnpm typecheck` 0 error、`pnpm build` 225 modules。
-- 视觉取证：Playwright 桌面 1440 / 平板 900 / 移动 390 三档 × 6 页，`overflowX=0`、console error=0（截图 `temp/shiguang-review/shots3/`）。
+- 后端 **151 passed**（141 + 6 静态托管 + 4 第二轮回归），约 30 s；前端 `pnpm typecheck` 0 error、`pnpm build` 225 modules。
+- 视觉取证：Playwright 桌面 1440 / 768 / 900 / 1024 / 移动 390 五档 × 6 页，`overflowX=0`、console error=0（截图 `temp/shiguang-review/shots5/`）。
+
+### 修复（第二轮独立复审，2026-11-17 午）
+- **HEAD 请求 405**：SPA catch-all 只注册 GET，`curl -I /logo.svg` 全 405，按 `docs/09` 验收会误判失败 → catch-all 改 `methods=["GET","HEAD"]`，补 HEAD 回归。
+- **缓存头按 URL 前缀判定的漏洞**：`//assets/../index.html` 实际命中 index.html 却拿 immutable 一年 → `cache_control()` 改按**解析后的真实文件**判定；`/index.html` 任何形态都 `no-cache`。
+- **对比度残留**：`--color-accent` 作小字 3.50/3.05 → 改 `#8a5a12`（5.82/5.07），7 处硬编码同值收敛为令牌；白字压 `--color-primary` 的 5 处（Toast/skip link/Chip 选中/AgentTrace 运行态/计划日序号）底改 `--color-primary-strong`（白字 5.17）；expired 徽标底 4.40 → `--color-surface-muted`（4.57）。
+- **环图零弧红点**：`wasteRate=0` 时 `dasharray="0 C"` + round linecap 在 12 点方向画红点 → 两段基弧都加 `>0` 守卫；斜纹末段截断到弧尾，不再咬进绿弧。
+- **日期徽章裸 ISO**：`shortDate("2026-11-16T09:00:00")` 返回 `11-16T09:00:00` 被截断 → 先取日期部分。
+- **区间码外泄**：统计页副标题「区间 30d」→ 复用 `rangeLabel()`；周报引用 locator 改「近 30 天区间汇总」（source key 不变）。
+- **舍入口径**：后端改 `Decimal(float)` + `ROUND_HALF_UP`，与 JS `toFixed` 逐位一致（1250 g 两边都是 1.3 kg；1.65 这类二进制略小值两边都是 1.6），补 tie 值回归。
+- **768px 统计页竖排单字**：侧栏仍占 248px 时内容区只有 440px，环图与数字并排把「少排碳」挤成一字一行 → `.summary` ≤1000px 改单列；Card 头部 ≤1000px 允许换行；TopBar 标题 ≤1024px 降一档。
 
 ## 2026-11-15（省赛交付版）
 

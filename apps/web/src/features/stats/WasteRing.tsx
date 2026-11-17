@@ -19,7 +19,8 @@ const HATCH_GAP = 7;
 function hatchDash(arc: number): string {
   const parts: number[] = [];
   for (let used = 0; used < arc; used += HATCH_DASH + HATCH_GAP) {
-    parts.push(HATCH_DASH, HATCH_GAP);
+    // 末段截断到弧尾，避免白纹咬进相邻的「吃掉」弧
+    parts.push(Math.min(HATCH_DASH, arc - used), HATCH_GAP);
   }
   parts.push(0, CIRCUMFERENCE);
   return parts.join(' ');
@@ -41,25 +42,29 @@ export function WasteRing({ wasteRate, savedGrams, thrownGrams }: WasteRingProps
         aria-label={`浪费率 ${formatPercent(safeRate, 1)}，吃掉 ${Math.round(savedGrams)} 克，扔掉 ${Math.round(thrownGrams)} 克`}
       >
         <circle cx={center} cy={center} r={RADIUS} className={styles.track} strokeWidth={STROKE} />
-        <circle
-          cx={center}
-          cy={center}
-          r={RADIUS}
-          className={styles.saved}
-          strokeWidth={STROKE}
-          strokeDasharray={`${savedArc} ${CIRCUMFERENCE}`}
-          transform={`rotate(-90 ${center} ${center})`}
-        />
-        <circle
-          cx={center}
-          cy={center}
-          r={RADIUS}
-          className={styles.thrown}
-          strokeWidth={STROKE}
-          strokeDasharray={`${thrownArc} ${CIRCUMFERENCE}`}
-          strokeDashoffset={-savedArc}
-          transform={`rotate(-90 ${center} ${center})`}
-        />
+        {savedArc > 0 ? (
+          <circle
+            cx={center}
+            cy={center}
+            r={RADIUS}
+            className={styles.saved}
+            strokeWidth={STROKE}
+            strokeDasharray={`${savedArc} ${CIRCUMFERENCE}`}
+            transform={`rotate(-90 ${center} ${center})`}
+          />
+        ) : null}
+        {thrownArc > 0 ? (
+          <circle
+            cx={center}
+            cy={center}
+            r={RADIUS}
+            className={styles.thrown}
+            strokeWidth={STROKE}
+            strokeDasharray={`${thrownArc} ${CIRCUMFERENCE}`}
+            strokeDashoffset={-savedArc}
+            transform={`rotate(-90 ${center} ${center})`}
+          />
+        ) : null}
         {thrownArc > 0 ? (
           <circle
             cx={center}

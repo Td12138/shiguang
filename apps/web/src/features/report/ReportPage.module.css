@@ -269,6 +269,10 @@
     padding: var(--space-3) var(--space-4);
   }
 
+  .hero h2 {
+    font-size: var(--fs-5);
+  }
+
   .heroArt svg {
     max-width: 140px;
   }

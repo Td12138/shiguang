@@ -64,3 +64,17 @@ def test_no_provider_report_also_matches_context(fixed_context, monkeypatch):
     assert text == report_domain._template_text(CONTEXT)
     for stale in HARDCODED:
         assert stale not in text
+
+
+def test_grams_rounding_matches_frontend_half_up():
+    """tie 值必须与前端 toFixed 一致（half-up），不能用 Python 的银行家舍入。
+
+    1250 g：JS toFixed(1) = 1.3 kg，Python f"{1.25:.1f}" = 1.2 kg —— 曾在这里分叉。
+    """
+    assert report_domain._grams(1250) == "1.3 kg"
+    assert report_domain._grams(2250) == "2.3 kg"
+    assert report_domain._grams(846.5) == "847 g"
+    assert report_domain._grams(999) == "999 g"
+    assert report_domain._grams(1000) == "1.0 kg"
+    assert report_domain._grams(0) == "0 g"
+    assert report_domain._pct(0.125) == "13%"

@@ -163,7 +163,7 @@ def create_app() -> FastAPI:
         if assets.is_dir():
             app.mount("/assets", SPAStaticFiles(directory=str(assets)), name="assets")
 
-        @app.get("/{full_path:path}", include_in_schema=False)
+        @app.api_route("/{full_path:path}", methods=["GET", "HEAD"], include_in_schema=False)
         async def spa(full_path: str) -> FileResponse:
             """dist 里真实存在的文件直接回文件（public 资源），其余回 index.html 交给前端路由。"""
             if full_path.startswith("api/"):

@@ -87,6 +87,11 @@
 }
 
 @media (max-width: 767px) {
+  /* viewBox 会整体缩放，轴标签要按 viewBox 单位放大才能保住可读字号 */
+  .label {
+    font-size: 18px;
+  }
+
   .scale {
     width: 100%;
     margin-left: 0;

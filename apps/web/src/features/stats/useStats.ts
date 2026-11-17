@@ -10,6 +10,11 @@ export const RANGE_OPTIONS = [
 
 export type RangeValue = (typeof RANGE_OPTIONS)[number]['value'];
 
+/** 区间代码 → 人话（页面文案不该露 "30d" 这种内部口径） */
+export function rangeLabel(value: string): string {
+  return RANGE_OPTIONS.find((option) => option.value === value)?.label ?? value;
+}
+
 const DEFAULT_RANGE: RangeValue = '30d';
 
 export interface StatsState {

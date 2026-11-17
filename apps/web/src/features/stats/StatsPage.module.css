@@ -193,8 +193,9 @@
 }
 
 @media (max-width: 1000px) {
+  /* 侧栏仍占 248px，环图与数字并排会把右侧挤成竖排单字 → 直接上下堆叠 */
   .summary {
-    grid-template-columns: minmax(220px, 0.75fr) minmax(0, 1.25fr);
+    grid-template-columns: 1fr;
     gap: var(--space-3);
   }
 
@@ -221,11 +222,6 @@
 }
 
 @media (max-width: 767px) {
-  .summary {
-    grid-template-columns: 1fr;
-    gap: var(--space-3);
-  }
-
   .ring {
     padding: var(--space-3);
   }

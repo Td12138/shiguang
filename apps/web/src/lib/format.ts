@@ -19,9 +19,10 @@ export function levelText(level: ExpiryLevel): string {
   return LEVEL_TEXT[level];
 }
 
-/** 「11-20」 */
+/** 「11-20」；带时间的 ISO（2026-11-20T09:00:00）只取日期部分 */
 export function shortDate(iso: string): string {
-  const parts = iso.split('-');
+  const datePart = (iso.split('T')[0] ?? iso).split(' ')[0] ?? iso;
+  const parts = datePart.split('-');
   if (parts.length < 3) return iso;
   const [, month, day] = parts;
   return `${month}-${day}`;

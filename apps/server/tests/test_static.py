@@ -73,6 +73,29 @@ def test_cache_headers_split_hash_assets_and_public_files(client):
     assert logo.headers["cache-control"] == "public, max-age=3600"
 
 
+def test_index_html_is_never_cached(client):
+    """/index.html 直接访问也不能缓存：否则发新版后旧 shell 会去请求已不存在的旧 hash 资源。"""
+    response = client.get("/index.html")
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-cache"
+
+
+def test_cache_control_uses_resolved_target_not_url_prefix(web_dist):
+    """`//assets/../index.html` 前缀像 assets，实际是 index.html → 必须 no-cache。"""
+    assert webdist.cache_control("//assets/../index.html") == "no-cache"
+    assert webdist.cache_control("/assets/../logo.svg") == "public, max-age=3600"
+    assert webdist.cache_control("/assets/index-abc123.js") == "public, max-age=31536000, immutable"
+    assert webdist.cache_control("/stats") == "no-cache"
+
+
+def test_head_requests_are_supported(client):
+    """静态托管要支持 HEAD（curl -I / 探活 / 爬虫），不能 405。"""
+    for path in ("/logo.svg", "/hero-kitchen.jpg", "/stats", "/index.html"):
+        response = client.head(path)
+        assert response.status_code == 200, path
+        assert response.content == b""
+
+
 def test_missing_file_falls_back_to_index(client):
     """不存在的路径不 404，交给前端路由。"""
     response = client.get("/no-such-file.png")

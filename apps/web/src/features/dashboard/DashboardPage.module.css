@@ -50,8 +50,17 @@
   margin-top: 6px;
 }
 
-/* 768–1024px：文案列放宽，标题不至于每行只剩五六个字 */
+/* 768–1024px：文案列放宽，标题不至于每行只剩五六个字；遮罩右移避免文字压到照片 */
 @media (max-width: 1024px) {
+  .hero {
+    background-image:
+      linear-gradient(90deg, var(--color-hero-bg) 0%, rgb(253 243 227 / 96%) 52%, rgb(253 243 227 / 62%) 74%, rgb(253 243 227 / 0%) 96%),
+      url('/hero-kitchen.jpg');
+    background-image:
+      linear-gradient(90deg, var(--color-hero-bg) 0%, rgb(253 243 227 / 96%) 52%, rgb(253 243 227 / 62%) 74%, rgb(253 243 227 / 0%) 96%),
+      image-set(url('/hero-kitchen.webp') type('image/webp'), url('/hero-kitchen.jpg') type('image/jpeg'));
+  }
+
   .heroText {
     max-width: 68%;
     padding: var(--space-3) var(--space-4);

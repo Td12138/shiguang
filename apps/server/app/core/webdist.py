@@ -14,6 +14,7 @@ from app import config
 
 # 带内容 hash 的产物可以长缓存；根目录公共文件（logo/hero）改一次要能较快生效
 ASSET_PREFIX = "assets/"
+INDEX_NAME = "index.html"
 ASSET_CACHE_CONTROL = "public, max-age=31536000, immutable"
 PUBLIC_CACHE_CONTROL = "public, max-age=3600"
 INDEX_CACHE_CONTROL = "no-cache"
@@ -35,5 +36,17 @@ def static_file(path: str) -> Path | None:
 
 
 def cache_control(path: str) -> str:
-    """真实文件的缓存头：hash 产物 immutable，其余公共文件 1 小时。"""
-    return ASSET_CACHE_CONTROL if path.lstrip("/").startswith(ASSET_PREFIX) else PUBLIC_CACHE_CONTROL
+    """按**解析后的真实文件**给缓存头，不看原始 URL 前缀。
+
+    为什么：`//assets/../index.html` 这类 URL 前缀是 assets/，实际命中的却是 index.html；
+    按前缀判会把 index.html 缓存一年，发布切软链后用户拿旧 shell 去请求已不存在的旧 hash 资源。
+    """
+    target = static_file(path)
+    if target is None:
+        return INDEX_CACHE_CONTROL
+    relative = target.relative_to(config.WEB_DIST_DIR.resolve()).as_posix()
+    if relative.startswith(ASSET_PREFIX):
+        return ASSET_CACHE_CONTROL
+    if relative == INDEX_NAME:
+        return INDEX_CACHE_CONTROL
+    return PUBLIC_CACHE_CONTROL

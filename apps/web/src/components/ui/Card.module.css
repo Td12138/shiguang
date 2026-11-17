@@ -61,6 +61,13 @@
   color: var(--color-text-muted);
 }
 
+/* 768–1000px：侧栏仍占 248px，内容区只有 440–670px，标题与操作区允许换行 */
+@media (max-width: 1000px) {
+  .header {
+    flex-wrap: wrap;
+  }
+}
+
 @media (max-width: 767px) {
   .header {
     padding: var(--space-2) var(--space-2) 0;

@@ -31,8 +31,8 @@
   --color-skeleton: #f0e7d7;
   --color-primary-border: #f0d4c2;
 
-  /* 辅色：熟黄（提示、点缀） */
-  --color-accent: #b97b16;
+  /* 辅色：熟黄（提示、点缀）；作小字文字时也要 ≥4.5:1 */
+  --color-accent: #8a5a12;
   --color-accent-soft: #f8edce;
 
   /* 语义色：都按「文字也要够读」定值（对各自 soft 底 ≥4.5:1） */
@@ -135,5 +135,5 @@
 
 [data-level='expired'] {
   --level-color: var(--level-expired);
-  --level-soft: #efe7d9;
+  --level-soft: var(--color-surface-muted);
 }

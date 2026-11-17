@@ -94,7 +94,7 @@
   flex-wrap: wrap;
   gap: var(--space-1);
   margin-top: 2px;
-  color: #8a5a12;
+  color: var(--color-accent);
   font-size: var(--fs-1);
 }
 

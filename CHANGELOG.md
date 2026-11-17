@@ -2,6 +2,28 @@
 
 > 只记「改变了什么 + 为什么 + 证据在哪」。产品与需求都在迭代，**文档在最后统一写**（`docs/04` 技术文档、视频脚本、答辩材料定稿留到提交前 12 小时），过程中靠本文件与 Git 历史留痕。
 
+## 2026-11-17（UI 改版合并 + 独立审查修复）
+
+### 新增
+- **暖阳厨房主题**（合并 `feat/ui-warm-kitchen`，`463fd63`）：暖纸底 + 柑橘橙行动色 + 深厨绿结构色；双色填充导航/分类图标；首页 hero 主视觉、周报「厨房周记」版式、统计页生活尺度换算卡。
+
+### 修复（两轮独立子代理审查）
+- **P0 · public 根级资源被 SPA 回退吞掉**：FastAPI 只挂 `/assets`，`/logo.svg`、`/hero-kitchen.jpg` 全返回 index.html（`text/html`）→ 线上侧栏碎图、首页 hero 无图。新增 `app/core/webdist.py` 统一解析 dist 内真实文件（含目录穿越防护），SPA 回退只对不存在的路径生效；`/assets/*` immutable 长缓存、公共文件 1 h、index.html `no-cache`；限流豁免复用同一解析。证据：`tests/test_static.py` 6 项；本地实测 `/logo.svg → image/svg+xml`、`/hero-kitchen.webp → image/webp 43 KB`、`/stats → index.html + no-cache`。
+- **P1 · 对比度**：faint `#9c9081`(2.6–3.1) → `#75685a`(≥4.5)；主色当文字的场景统一 `--color-primary-text #b8431f`；主按钮底 `--color-primary-strong #c0431f`（白字 4.83）；danger/warn/fresh 语义色按「文字也够读」重定值；侧栏深底半透明白字 55%/50% → 75%（6.2）。
+- **P1 · 768–1024px 断点塌陷**：统计页「换算成日常」三列在 900px 时文字列只剩 34px → ≤1000px 改竖排清单；周报 hero 文案列被按钮最小宽度顶破 → ≤1024px 插画列收窄到 140px + `.heroCopy{min-width:0}`；首页 hero 文案列 ≤1024px 放宽到 68%。
+- **P2**：`NavIcon` 根节点残留 `stroke="currentColor"` 给填充块套描边 → `stroke="none"`；两处死 class 引用（`styles.summaryCard` / `styles.article`）删除；环图图例补回克数；金额用 `formatAmount` 固定两位小数；`--font-display` 补回 Segoe UI（Windows 数字字形一致）。
+
+### 优化
+- **图表不只靠色相**：趋势柱「扔掉」用 SVG `<pattern>` 斜纹、环图「扔掉」弧叠斜纹刻度，图例同步斜纹色块；灰度/色盲可分辨。
+- **首页 hero 瘦身**：2560px/235 KB → 1600px JPEG 87 KB + WebP 42 KB，CSS `image-set()` 优先 WebP、JPEG 回退（原图备份 `temp/shiguang-review/`）。
+- **favicon 独立**：`favicon.svg` 带深厨绿圆角底（浅色标签栏可见），侧栏仍用透明底 `logo.svg`。
+- **令牌收敛**：新增 on-teal 系列 / hero / skeleton / thrown / eaten / fresh-border 等令牌，替换组件内重复硬编码色；删除零引用的 `--color-teal-soft`。
+- **周报模板说人话**：`30d` → 「近 30 天」，克数 ≥1 kg 用 kg 一位小数（与前端 `formatGrams` 同口径），金额两位小数。
+
+### 测试
+- 后端 **147 passed**（141 + 6 项静态托管回归），约 28 s；前端 `pnpm typecheck` 0 error、`pnpm build` 225 modules。
+- 视觉取证：Playwright 桌面 1440 / 平板 900 / 移动 390 三档 × 6 页，`overflowX=0`、console error=0（截图 `temp/shiguang-review/shots3/`）。
+
 ## 2026-11-15（省赛交付版）
 
 ### 修复（交付前独立审查，2026-11-15 晚）

@@ -40,3 +40,6 @@ docs/tech-report/*.toc
 docs/tech-report/*.fls
 docs/tech-report/*.fdb_latexmk
 docs/tech-report/*.xdv
+
+# 演示视频（提交系统/网盘另传，不进 GitHub）
+*.mp4

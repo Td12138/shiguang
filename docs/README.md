@@ -8,7 +8,7 @@
 | 文件 | 内容 | 状态 |
 |---|---|---|
 | [04-技术方案.md](04-技术方案.md) | 技术文档正文：架构 / 六项 AI 能力 / 正确性 / 测试 / 部署 / 局限 | ✅ 定稿，PDF 由 `tech-report/` 生成 |
-| [05-演示视频分镜.md](05-演示视频分镜.md) | 7:05 分镜：逐段画面 + 口播原文 + 评分点 + 分段复位表 | ✅ 定稿，待录制 |
+| [05-演示视频分镜.md](05-演示视频分镜.md) | 7:05 分镜：逐段画面 + 口播原文 + 评分点 + 分段复位表 | ✅ 已录制（7:05，1920×1080，H.264/AAC，184 MB） |
 | [06-数据来源与合规.md](06-数据来源与合规.md) | 食材/碳因子/价格口径、误差边界、免责声明、许可证 | ✅ |
 | [07-AI协作与原创性说明.md](07-AI协作与原创性说明.md) | AI 与人工分工、人工判断点、提交粒度、与往届差异 | ✅ |
 | [08-答辩问答.md](08-答辩问答.md) | 12 个预判问题与答法要点 | ✅ |
@@ -37,7 +37,7 @@
 #    然后 latexmk 出 PDF；数学符号 ≤ ≥ ≈ 由脚本转 \ensuremath 宏，别手工改 body.tex
 pandoc ..\04-技术方案.md -o body.tex --listings --shift-heading-level-by=-1
 latexmk -g -xelatex -outdir=..\..\..\..\outputs\chuanzhi-aiweb\texbuild shiguang-tech-report.tex
-# 2) 校验：16 页、A4、无 Missing character、目录无重号；PDF 拷到 outputs/chuanzhi-aiweb/食光-技术文档.pdf
+# 2) 校验：20 页、A4、无 Missing character、目录无重号；PDF 拷到 outputs/chuanzhi-aiweb/食光-技术文档.pdf
 ```
 
 > 用 `--shift-heading-level-by=-1` 是因为 `04` 的 `##` 对应 PDF 的 `\section`、`###` 对应 `\subsection`；正文手写的「4.1」等编号会在生成前剥掉，交给 LaTeX 计数器（旧版曾出现「5.1 5.1」）。

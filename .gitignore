@@ -43,3 +43,7 @@ docs/tech-report/*.xdv
 
 # 演示视频（提交系统/网盘另传，不进 GitHub）
 *.mp4
+
+# 评审凭据（只用于本地编译提交版 PDF，不入库）
+docs/tech-report/demo-credentials.tex
+

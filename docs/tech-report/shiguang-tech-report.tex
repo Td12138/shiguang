@@ -50,6 +50,13 @@
 
 \providecommand{\passthrough}[1]{#1}
 \providecommand{\tightlist}{}
+% 评审凭据只在本地文件里，仓库只有宏与兜底文案
+\IfFileExists{demo-credentials.tex}{%
+  \input{demo-credentials.tex}%
+}{%
+  \newcommand{\DemoUser}{见提交表单}%
+  \newcommand{\DemoPass}{见提交表单}%
+}
 % 长斜杠串（组件名/目录名）里允许换行：效果是「/ + 可断点」，不产生空格
 \newcommand{\sbrk}{/\allowbreak}
 \newcounter{none}
@@ -70,7 +77,7 @@
 \toprule
 赛事 & 2026 第九届传智杯全国大学生数智创新与 AI 应用大赛 · AI WEB 网页开发挑战赛（省赛作品） \\
 代码仓库 & \url{https://github.com/Td12138/shiguang} \\
-在线 Demo & \url{http://47.100.224.209:8720}（Basic 认证，演示用） \\
+在线 Demo & \url{http://47.100.224.209:8720}（Basic 认证；账号 \texttt{\DemoUser}，口令 \texttt{\DemoPass}） \\
 文档版本 & v1.1 · 2026-11-17 \\
 技术栈 & FastAPI + SQLite + React 18 + TypeScript + Vite \\
 \bottomrule

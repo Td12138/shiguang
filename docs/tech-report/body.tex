@@ -7,7 +7,7 @@ pytest 全绿（110 项业务 + 31 项交付前审查回归 + 10
 项静态托管与口径回归；前端无自动化测试）。文档版本 v1.1 · 2026-11-17。
 \end{quote}
 
-\section{一页摘要}\label{ux4e00ux9875ux6458ux8981}
+\section{项目概述}\label{ux4e00ux9875ux6458ux8981}
 
 {\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}
@@ -45,7 +45,7 @@ KB gzip \\
 \end{longtable}
 }
 
-\section{需求与场景}\label{ux9700ux6c42ux4e0eux573aux666f}
+\section{需求分析}\label{ux9700ux6c42ux4e0eux573aux666f}
 
 {\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}
@@ -79,7 +79,7 @@ App
 App
 只管买不管扔；通用聊天助手结论无出处、无法落库。明确不做：账号、多用户、App、微调、图像生成、营养处方、扫码、常驻摄像头。
 
-\section{总体架构}\label{ux603bux4f53ux67b6ux6784}
+\section{系统架构设计}\label{ux603bux4f53ux67b6ux6784}
 
 {\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}
@@ -155,7 +155,7 @@ nginx；回滚只改链接；上传目录外挂，切软链后旧图不丢 &
 \end{longtable}
 }
 
-\section{AI 能力设计}\label{ai-ux80fdux529bux8bbeux8ba1}
+\section{AI 技术方案}\label{ai-ux80fdux529bux8bbeux8ba1}
 
 \begin{quote}
 对应评分六项：大模型集成 8 / Agent 8 / RAG 6 / 多模态 5 / AI 安全 4 /
@@ -411,7 +411,7 @@ echo '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"get_shelf_
 
 为什么不直接让模型写 SQL：白名单 + 类型校验，模型只能在这 5 个动作里选。
 
-\section{业务正确性}\label{ux4e1aux52a1ux6b63ux786eux6027}
+\section{核心功能实现（一）：业务与计量}\label{ux4e1aux52a1ux6b63ux786eux6027}
 
 \subsection{\texorpdfstring{计量（唯一实现：\texttt{domain/inventory.py}）}{计量（唯一实现：domain/inventory.py）}}\label{ux8ba1ux91cfux552fux4e00ux5b9eux73b0domaininventory.py}
 
@@ -547,7 +547,7 @@ qty/grams，added→\passthrough{\lstinline!add\_items!}）→ 写
 \passthrough{\lstinline!verified\_at!}，触发器拦新写入（垃圾时间戳 =
 假新鲜）。
 
-\section{前端工程}\label{ux524dux7aefux5de5ux7a0b}
+\section{核心功能实现（二）：前端交互}\label{ux524dux7aefux5de5ux7a0b}
 
 {\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}
@@ -650,7 +650,7 @@ immutable 一年、公共文件 1 h、index.html 一律
 +
 下一步按钮。为什么分传输与业务错误：前者后端没在，可退回样例；后者后端在但这次不行，必须如实报错。
 
-\section{测试与验证}\label{ux6d4bux8bd5ux4e0eux9a8cux8bc1}
+\section{测试与部署（一）：测试}\label{ux6d4bux8bd5ux4e0eux9a8cux8bc1}
 
 151 项全绿（110 项业务 + 31 项交付前审查回归 + 10
 项静态托管与口径回归，约 30 s）。当前分布：对账 28、改计划 14、库存
@@ -748,7 +748,7 @@ error=0、requestFailed=0、碎图=0；\passthrough{\lstinline!HEAD /logo.svg!}
 immutable；12 种目录穿越变体全部只回 index.html。截图存
 \passthrough{\lstinline!temp/shiguang-review/live-shots2/!}。
 
-\section{部署与运维}\label{ux90e8ux7f72ux4e0eux8fd0ux7ef4}
+\section{测试与部署（二）：部署}\label{ux90e8ux7f72ux4e0eux8fd0ux7ef4}
 
 {\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}
@@ -799,7 +799,7 @@ Auth（\passthrough{\lstinline!hmac.compare\_digest!}，\passthrough{\lstinline!
 413；启动日志只打脱敏配置。为什么默认关：本地开发不需要登录，mock
 不出网；开关默认关才能保证旧行为逐字节不变。
 
-\section{局限与下一步}\label{ux5c40ux9650ux4e0eux4e0bux4e00ux6b65}
+\section{总结与展望}\label{ux5c40ux9650ux4e0eux4e0bux4e00ux6b65}
 
 {\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}
@@ -974,3 +974,4 @@ revise
 \item 用户体验 10\%：拍照即用、流式进度、降级提示、移动端。
 \item 社会价值与商业潜力 10\%：减少食物浪费与碳排，C/B 两端路径，ESG 数据。
 \end{itemize}
+

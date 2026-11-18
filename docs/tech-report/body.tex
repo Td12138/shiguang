@@ -674,7 +674,7 @@ SQLite；种子指向临时空路径；\passthrough{\lstinline!FakeProvider!}
 null ②置信度虚高 1.0 ③三种返回姿势。另一张
 \passthrough{\lstinline!samples/fridge-1.jpg!} 实为「猫扒冰箱门」照片，真实模型会回答「没有食材」。复测
 \passthrough{\lstinline!python scripts/probe\_vlm.py ../../samples/fridge-pd/fridge-pd-1.jpg!}（打印条数/耗时/置信度，不打印密钥）；素材
-\passthrough{\lstinline!samples/!} 8 张自摄照片（4 张真实冰箱内景）。其余耗时均为 mock
+\passthrough{\lstinline!samples/!} 8 张演示图片（4 张冰箱内景，部分来自公开网络）。其余耗时均为 mock
 回放（零网络、确定性），不能当模型延迟指标。
 
 mock 复跑（每条按各自初始状态单独执行：计划/改计划用同一份
@@ -978,6 +978,7 @@ revise
 \item 用户体验 10\%：拍照即用、流式进度、降级提示、移动端。
 \item 社会价值与商业潜力 10\%：减少食物浪费与碳排，C/B 两端路径，ESG 数据。
 \end{itemize}
+
 
 
 
